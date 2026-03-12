@@ -434,71 +434,35 @@ def apply_wimbledon_ui():
             background-color: #450084 !important; /* Royal Purple hover */
             color: #ffffff !important;
         }
+        /* Custom JS Component Styling */
         
-        .luxury-wimbledon-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            background: rgba(255, 255, 255, 0.05); /* Frosted Glass */
-            backdrop-filter: blur(15px);
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ffffff;
-            font-family: 'Inter', sans-serif;
-            margin-top: 1.5rem;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        /* Removed .luxury-wimbledon-table css from global scope 
+           as it will be injected into the isolated component iframe */
+
+        /* 11. Custom Modal Styling for Dark Green UI */
+        div[data-testid="stModal"] > div[role="dialog"] {
+            background-color: #003319 !important; /* Dark Green */
+            border: 2px solid #450084 !important; /* Purple Accent */
+            border-radius: 12px !important;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6) !important;
+            color: #ffffff !important;
         }
-        .luxury-wimbledon-table thead th {
-            background-color: rgba(69,0,132,0.85) !important; /* Semi-transparent Purple */
-            color: #ffffff;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.9rem;
+
+        div[data-testid="stModal"] > div[role="dialog"] [data-testid="stMarkdownContainer"] h3 {
+            color: #ffffff !important;
+            font-family: 'Montserrat', sans-serif !important;
             text-transform: uppercase;
             letter-spacing: 1px;
-            padding: 1.2rem 1rem;
-            text-align: left;
-            border-bottom: 2px solid #450084;
-            backdrop-filter: blur(5px);
-            cursor: pointer;
-            user-select: none;
-            position: relative;
-            transition: background-color 0.2s;
         }
-        .luxury-wimbledon-table thead th:hover {
-            background-color: rgba(69,0,132,1) !important;
+
+        /* Override general modal close button to white */
+        div[data-testid="stModal"] button[aria-label="Close"] {
+            color: #ffffff !important;
         }
-        .luxury-wimbledon-table thead th::after {
-            content: '↕';
-            position: absolute;
-            right: 10px;
-            opacity: 0.3;
-            font-size: 1rem;
-        }
-        .luxury-wimbledon-table thead th.sort-asc::after {
-            content: '↑';
-            opacity: 1;
-            color: #00ff88;
-        }
-        .luxury-wimbledon-table thead th.sort-desc::after {
-            content: '↓';
-            opacity: 1;
-            color: #00ff88;
-        }
-        .luxury-wimbledon-table tbody tr {
-            transition: all 0.2s ease;
-        }
-        .luxury-wimbledon-table tbody tr:hover {
-            background-color: rgba(255,255,255,0.1) !important; 
-            cursor: pointer;
-        }
-        .luxury-wimbledon-table td {
-            padding: 1rem;
-            font-size: 0.95rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .luxury-wimbledon-table tbody tr:last-child td {
-            border-bottom: none;
+
+        /* 12. Hide System Trigger Input */
+        div[data-testid="stTextInput"]:has(input[aria-label="hidden_edit_trigger"]) {
+            display: none !important;
         }
     </style>
     """,
@@ -620,8 +584,65 @@ m1.metric(label="Jugadores Registrados", value=str(total_players), delta=f"Varon
 m2.metric(label="Pagos Confirmados", value=str(count_pago_confirmado), delta=None)
 m3.metric(label="Pagos Pendientes", value=str(count_pago_pendiente), delta=None, delta_color="inverse")
 m4.metric(label="Partidos Próximos", value="16", delta=None)
+@st.dialog("EDITAR JUGADOR")
+def show_edit_player_dialog(idx):
+    st.markdown("### Datos del Jugador")
+    
+    # Retrieve current data
+    player_data = st.session_state.players_df.loc[idx]
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        f_name = st.text_input("Nombre(s)", value=str(player_data.get("Nombre", "")), placeholder="Ej. Roger")
+        f_cat = st.selectbox("Categoría", ["Varonil", "Femenil", "Infantil"], index=["Varonil", "Femenil", "Infantil"].index(player_data.get("Categoría", "Varonil")) if player_data.get("Categoría") in ["Varonil", "Femenil", "Infantil"] else 0)
+        
+        # Determine valid subcategories based on category
+        scat_options = ["AA", "A", "B", "C", "D"]
+        current_scat = str(player_data.get("SubCategoría", "A"))
+        scat_index = scat_options.index(current_scat) if current_scat in scat_options else 0
+        f_scat = st.selectbox("Subcategoría", scat_options, index=scat_index)
+        
+    with c2:
+        f_last = st.text_input("Apellido(s)", value=str(player_data.get("Apellido", "")), placeholder="Ej. Federer")
+        f_phone = st.text_input("Celular", value=str(player_data.get("Celular", "")), placeholder="Ej. 311...")
+        f_infantil = st.toggle("Infantil", value=bool(player_data.get("Infantil", False)))
+    
+    current_pago = str(player_data.get("Pago", "Pendiente"))
+    pago_index = ["Confirmado", "Pendiente"].index(current_pago) if current_pago in ["Confirmado", "Pendiente"] else 1
+    f_pago = st.selectbox("Estado de Pago", ["Confirmado", "Pendiente"], index=pago_index)
+    
+    # Inject JavaScript to prevent default Streamlit auto-focusing on the first text input
+    import streamlit.components.v1 as components
+    components.html(
+        """
+        <script>
+            const doc = window.parent.document;
+            setTimeout(() => {
+                if (doc.activeElement) { doc.activeElement.blur(); }
+            }, 50);
+            setTimeout(() => {
+                if (doc.activeElement) { doc.activeElement.blur(); }
+            }, 150);
+        </script>
+        """,
+        height=0,
+    )
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("ACTUALIZAR", type="primary", use_container_width=True):
+        if f_name and f_last and f_phone:
+            # Update the dataframe directly
+            st.session_state.players_df.loc[idx, "Categoría"] = f_cat
+            st.session_state.players_df.loc[idx, "SubCategoría"] = f_scat
+            st.session_state.players_df.loc[idx, "Nombre"] = f_name
+            st.session_state.players_df.loc[idx, "Apellido"] = f_last
+            st.session_state.players_df.loc[idx, "Celular"] = f_phone
+            st.session_state.players_df.loc[idx, "Pago"] = f_pago
+            st.session_state.players_df.loc[idx, "Infantil"] = f_infantil
+            st.rerun()
+        else:
+            st.error("Por favor llena todos los campos.")
 
-st.markdown("<br>", unsafe_allow_html=True)
 
 @st.dialog("NUEVO JUGADOR")
 def show_add_player_dialog():
@@ -765,84 +786,100 @@ with tab_reg:
             st.session_state.processed_csv_files.append(uploaded_file.name)
             st.rerun() # Refresh the page immediately so the top metric cards recalculate
             
-        display_df = st.session_state.players_df
+        display_df = st.session_state.players_df.copy()
             
         st.subheader(f"LISTA DE JUGADORES ({len(display_df)})")
 
-        st.text_input("Buscar Jugador", placeholder="   Buscar por nombre, apellido o celular...", label_visibility="collapsed", key="live_search_input")
+        # Declare the Official Bi-Directional Custom Component
+        import streamlit.components.v1 as components
+        import os
         
-        # Render luxurious HTML table
-        html_table = display_df.to_html(classes="luxury-wimbledon-table", index=False, escape=False)
-        st.markdown(html_table, unsafe_allow_html=True)
+        _table_component = components.declare_component(
+            "custom_table_component",
+            path=os.path.join(os.path.dirname(__file__), "custom_table_component")
+        )
 
-        # Inject JavaScript for instantaneous client-side filtering and sorting
+        st.text_input("Buscar Jugador", placeholder="   Buscar por nombre, apellido o celular...", label_visibility="collapsed", key="live_search_input")
+
+        def html_table_component(df):
+            # Inject the row index as a hidden span into the first column of each row
+            df_html = df.copy()
+            if not df_html.empty:
+                first_col = df_html.columns[0]
+                df_html[first_col] = df_html.apply(
+                    lambda row: f'<span class="row-id" data-idx="{row.name}" style="display:none;"></span>{row[first_col]}', 
+                    axis=1
+                )
+
+            # 1. Convert DF to HTML
+            table_html = df_html.to_html(classes="luxury-wimbledon-table", index=False, escape=False)
+            
+            # 2. Extract the CSS from what we used to have globally
+            custom_css = """
+            <style>
+            .luxury-wimbledon-table {
+                width: 100%; border-collapse: separate; border-spacing: 0;
+                background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px);
+                border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.2);
+                color: #ffffff; font-family: 'Inter', sans-serif; margin-top: 1.5rem;
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            }
+            .luxury-wimbledon-table thead th {
+                background-color: rgba(69,0,132,0.85); color: #ffffff; font-family: 'Montserrat', sans-serif;
+                font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;
+                padding: 1.2rem 1rem; text-align: left; border-bottom: 2px solid #450084;
+                backdrop-filter: blur(5px); cursor: pointer; user-select: none; position: relative;
+                transition: background-color 0.2s;
+            }
+            .luxury-wimbledon-table thead th:hover { background-color: rgba(69,0,132,1); }
+            .luxury-wimbledon-table tbody tr { transition: all 0.2s ease; }
+            .luxury-wimbledon-table tbody tr:hover { background-color: rgba(255,255,255,0.1); cursor: pointer; }
+            .luxury-wimbledon-table td { padding: 1rem; font-size: 0.95rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+            .luxury-wimbledon-table tbody tr:last-child td { border-bottom: none; }
+            /* Extra wrapper fix */
+            body { margin: 0; padding: 0; overflow: hidden; }
+            </style>
+            """
+            
+            # Compile full HTML string to pass to the React bridge
+            full_html = f"{custom_css}{table_html}"
+            
+            # Call the declared component. `html_content` gets serialized and passed to JS.
+            return _table_component(html_content=full_html, key="table_view")
+
+        # Call the component wrapper. It yields the string index of the clicked row.
+        clicked_idx_str = html_table_component(display_df)
+        
+        # If the Custom Component returned a value (a user clicked), show the dialog!
+        if clicked_idx_str is not None:
+            # We must use session state to ensure the dialog stays open after interaction
+            if "last_clicked_row" not in st.session_state or st.session_state.last_clicked_row != clicked_idx_str:
+                st.session_state.last_clicked_row = clicked_idx_str
+                idx = int(clicked_idx_str)
+                show_edit_player_dialog(idx)
+
+        # ---------------------------------------------------------
+        # Bridge the parent "Buscar Jugador" to the iframe 
+        # Since the iframe is isolated, we use a tiny script in the parent to pass the input value down.
+        # ---------------------------------------------------------
         import streamlit.components.v1 as components
         components.html(
             """
             <script>
             const doc = window.parent.document;
             const input = doc.querySelector('input[aria-label="Buscar Jugador"]');
-            const table = doc.querySelector('.luxury-wimbledon-table');
             
-            if (table) {
-                // 1. Filtering Logic
-                if (input) {
-                    function applyFilter() {
-                        const filter = input.value.toUpperCase();
-                        const trs = table.getElementsByTagName("tr");
-                        for (let i = 1; i < trs.length; i++) {
-                            let rowText = trs[i].textContent || trs[i].innerText;
-                            if (rowText.toUpperCase().indexOf(filter) > -1) {
-                                trs[i].style.display = "";
-                            } else {
-                                trs[i].style.display = "none";
+            if (input) {
+                input.addEventListener('keyup', () => {
+                    const filter = input.value;
+                    // Find our specific table iframe (usually the last rendered or biggest)
+                    const iframes = doc.querySelectorAll('iframe');
+                    iframes.forEach(iframe => {
+                        try {
+                            if (iframe.contentWindow && iframe.contentWindow.applyFilter) {
+                                iframe.contentWindow.applyFilter(filter);
                             }
-                        }
-                    }
-                    input.addEventListener('keyup', applyFilter);
-                    setTimeout(applyFilter, 100);
-                }
-
-                // 2. Sorting Logic
-                const headers = table.querySelectorAll('th');
-                headers.forEach((header, index) => {
-                    header.addEventListener('click', () => {
-                        const tbody = table.querySelector('tbody');
-                        const rows = Array.from(tbody.querySelectorAll('tr'));
-                        const isAscending = header.classList.contains('sort-asc');
-                        
-                        // Remove sort classes from all headers
-                        headers.forEach(h => {
-                            h.classList.remove('sort-asc', 'sort-desc');
-                        });
-                        
-                        // Toggle sorting direction
-                        const direction = isAscending ? -1 : 1;
-                        if (!isAscending) {
-                            header.classList.add('sort-asc');
-                        } else {
-                            header.classList.add('sort-desc');
-                        }
-
-                        // Sort the rows
-                        const sortedRows = rows.sort((a, b) => {
-                            const aColText = a.querySelectorAll('td')[index].textContent.trim();
-                            const bColText = b.querySelectorAll('td')[index].textContent.trim();
-                            
-                            // Check if numeric
-                            const aNum = parseFloat(aColText);
-                            const bNum = parseFloat(bColText);
-                            
-                            if (!isNaN(aNum) && !isNaN(bNum)) {
-                                return (aNum - bNum) * direction;
-                            }
-                            
-                            return aColText.localeCompare(bColText) * direction;
-                        });
-
-                        // Re-append rows to table body in the newly sorted order
-                        // This uses appendChild which moves existing DOM elements without recreating them
-                        sortedRows.forEach(row => tbody.appendChild(row));
+                        } catch(e) { } // Cross-origin errors for external iframes
                     });
                 });
             }

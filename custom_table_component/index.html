@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600&display=swap');
+    
+    /* Reset body margin */
+    body { margin: 0; padding: 0; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    // ----------------------------------------------------
+    // Streamlit Component Boilerplate (Vanilla JS)
+    // ----------------------------------------------------
+    function sendMessageToStreamlitClient(type, data) {
+      const outData = Object.assign({
+        isStreamlitMessage: true,
+        type: type,
+      }, data);
+      window.parent.postMessage(outData, "*");
+    }
+
+    function init() {
+      sendMessageToStreamlitClient("streamlit:componentReady", {apiVersion: 1});
+    }
+
+    function setFrameHeight(height) {
+      sendMessageToStreamlitClient("streamlit:setFrameHeight", {height: height});
+    }
+
+    function sendValue(value) {
+      sendMessageToStreamlitClient("streamlit:setComponentValue", {value: value, dataType: "json"});
+    }
+
+    let lastRenderedContent = "";
+
+    // Connect to Streamlit's render event
+    window.addEventListener("message", function(event) {
+      if (event.data.type !== "streamlit:render") return;
+
+      const args = event.data.args;
+      const htmlContent = args.html_content;
+      
+      const root = document.getElementById("root");
+      
+      // Only re-render DOM if the actual incoming HTML from Python changed.
+      // Do NOT check root.innerHTML as we mutate it with sorting classes and DOM moves!
+      if (lastRenderedContent !== htmlContent) {
+          lastRenderedContent = htmlContent;
+          root.innerHTML = htmlContent;
+          
+          const table = root.querySelector('.luxury-wimbledon-table');
+          if (table) {
+              // 1. Attach row click listeners
+              const tbody = table.querySelector("tbody");
+              if (tbody) {
+                  tbody.addEventListener('click', (e) => {
+                      const tr = e.target.closest('tr');
+                      if (tr) {
+                          const firstTd = tr.firstElementChild;
+                          if (firstTd) {
+                              const idSpan = firstTd.querySelector('span.row-id');
+                              if (idSpan && idSpan.hasAttribute('data-idx')) {
+                                  sendValue(idSpan.getAttribute('data-idx'));
+                              }
+                          }
+                      }
+                  });
+              }
+
+              // 2. Attach Sorting Logic
+              const headers = table.querySelectorAll('th');
+              headers.forEach((header, index) => {
+                  header.addEventListener('click', () => {
+                      const tbody = table.querySelector('tbody');
+                      if (!tbody) return;
+                      
+                      const rows = Array.from(tbody.querySelectorAll('tr'));
+                      const isAscending = header.classList.contains('sort-asc');
+                      
+                      // Remove sort classes from all headers
+                      headers.forEach(h => {
+                          h.classList.remove('sort-asc', 'sort-desc');
+                      });
+                      
+                      // Toggle sorting direction
+                      const direction = isAscending ? -1 : 1;
+                      if (!isAscending) {
+                          header.classList.add('sort-asc');
+                      } else {
+                          header.classList.add('sort-desc');
+                      }
+
+                      // Sort the rows
+                      const sortedRows = rows.sort((a, b) => {
+                          const aColText = a.querySelectorAll('td')[index].textContent.trim();
+                          const bColText = b.querySelectorAll('td')[index].textContent.trim();
+                          
+                          // Check if numeric
+                          const aNum = parseFloat(aColText);
+                          const bNum = parseFloat(bColText);
+                          
+                          if (!isNaN(aNum) && !isNaN(bNum)) {
+                              return (aNum - bNum) * direction;
+                          }
+                          
+                          return aColText.localeCompare(bColText) * direction;
+                      });
+
+                      // Re-append rows to table body in the newly sorted order
+                      sortedRows.forEach(row => tbody.appendChild(row));
+                  });
+              });
+          }
+      }
+
+      // Tell Streamlit how tall the component is
+      // A small delay ensures the DOM is fully painted
+      setTimeout(() => {
+        setFrameHeight(document.documentElement.scrollHeight);
+      }, 50);
+    });
+
+    // Make applyFilter globally available for the parent to call
+    window.applyFilter = function(filterText) {
+        const table = document.querySelector('.luxury-wimbledon-table');
+        if (!table) return;
+        
+        const filter = filterText.toUpperCase();
+        const trs = table.getElementsByTagName("tr");
+        for (let i = 1; i < trs.length; i++) { // skip header
+            let rowText = trs[i].textContent || trs[i].innerText;
+            if (rowText.toUpperCase().indexOf(filter) > -1) {
+                trs[i].style.display = "";
+            } else {
+                trs[i].style.display = "none";
+            }
+        }
+        setFrameHeight(document.documentElement.scrollHeight);
+    }
+
+    init();
+  </script>
+</body>
+</html>
