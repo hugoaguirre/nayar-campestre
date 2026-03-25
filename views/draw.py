@@ -5,7 +5,7 @@ def render_draw_view():
     with col_l:
         st.markdown('<div class="glass-card-anchor"></div>', unsafe_allow_html=True)
         st.subheader("Lógica de Grupos")
-        cat_select = st.selectbox("Categoría", ["AA", "A", "B", "C", "D", "Infantil"])
+        cat_select = st.selectbox("Categoría", ["AA", "A", "B", "C", "D", "Mini Tenis", "8-10 años"])
         if st.button("SORTEAR Y CREAR GRUPOS"):
             st.success(f"Grupos generados para {cat_select}")
 

@@ -5,7 +5,7 @@ def apply_wimbledon_ui():
         """
     <style>
         /* 1. Global Modern Typography */
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
         
         /* Dark Wimbledon Theme Base */
         .stApp {
@@ -68,12 +68,13 @@ def apply_wimbledon_ui():
         div[data-testid="stButton"],
         div[data-testid="stButton"] > button,
         div.stButton > button,
+        div[data-testid="stDownloadButton"] > button,
         div[data-testid="stBaseButton-secondary"] {
             width: 100% !important;
             display: block !important;
         }
         
-        div.stButton > button {
+        div.stButton > button, div[data-testid="stDownloadButton"] > button {
             background-color: #450084 !important; /* Regal Purple */
             color: #ffffff !important; 
             border: 2px solid #ffffff !important;
@@ -83,7 +84,7 @@ def apply_wimbledon_ui():
             box-shadow: none !important;
         }
         
-        div.stButton > button p {
+        div.stButton > button p, div[data-testid="stDownloadButton"] > button p {
             font-family: 'Montserrat', sans-serif !important;
             font-weight: 700 !important;
             font-size: 0.85rem !important;
@@ -93,14 +94,14 @@ def apply_wimbledon_ui():
             color: #ffffff !important; 
         }
 
-        div.stButton > button:hover {
+        div.stButton > button:hover, div[data-testid="stDownloadButton"] > button:hover {
             background-color: #ffffff !important;
             color: #450084 !important;
             transform: translateY(-2px);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
         }
         
-        div.stButton > button:hover p {
+        div.stButton > button:hover p, div[data-testid="stDownloadButton"] > button:hover p {
             color: #450084 !important;
         }
 

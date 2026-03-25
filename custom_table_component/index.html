@@ -65,7 +65,7 @@
                           if (firstTd) {
                               const idSpan = firstTd.querySelector('span.row-id');
                               if (idSpan && idSpan.hasAttribute('data-idx')) {
-                                  sendValue(idSpan.getAttribute('data-idx'));
+                                  sendValue(idSpan.getAttribute('data-idx') + '_' + Date.now());
                               }
                           }
                       }
