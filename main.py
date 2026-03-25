@@ -45,4 +45,4 @@ with tab_print:
     render_export_view()
 
 # --- 7. FOOTER ---
-st.caption("Dashboard del torneo | Designed for Nayar Club Campestre")
+st.caption("Donated to Nayar Club Campestre - @hugoaguirre")

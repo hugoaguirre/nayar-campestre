@@ -81,10 +81,15 @@ def render_registration_view():
         st.markdown(css_state, unsafe_allow_html=True)
         
         # Preemptively enforce exactly the new column order Requested by user before ANY display/export outputs 
-        desired_cols = ["Nombre", "Apellido", "Subcategoría", "Categoría", "Pago", "Celular", "Singles", "Dobles"]
+        desired_cols = ["Nombre", "Apellido", "Subcategoría", "Categoría", "Pago", "Celular", "Singles", "Dobles", "Pareja de dobles"]
         for c in desired_cols:
              if c not in st.session_state.players_df.columns:
-                 st.session_state.players_df[c] = "Sí" if c in ["Singles", "Dobles"] else ""
+                 if c == "Singles":
+                     st.session_state.players_df[c] = "Sí"
+                 elif c == "Dobles":
+                     st.session_state.players_df[c] = "No"
+                 else:
+                     st.session_state.players_df[c] = ""
         st.session_state.players_df = st.session_state.players_df[desired_cols]
 
         csv_data = st.session_state.players_df.to_csv(index=False).encode('utf-8')
@@ -106,6 +111,22 @@ def render_registration_view():
             
         if uploaded_file is not None and uploaded_file.name not in st.session_state.processed_csv_files:
             df_uploaded = pd.read_csv(uploaded_file)
+            
+            if "Singles" not in df_uploaded.columns:
+                df_uploaded["Singles"] = "Sí"
+            else:
+                df_uploaded["Singles"] = df_uploaded["Singles"].fillna("Sí")
+                
+            if "Dobles" not in df_uploaded.columns:
+                df_uploaded["Dobles"] = "No"
+            else:
+                df_uploaded["Dobles"] = df_uploaded["Dobles"].fillna("No")
+                
+            if "Pareja de dobles" not in df_uploaded.columns:
+                df_uploaded["Pareja de dobles"] = ""
+            else:
+                df_uploaded["Pareja de dobles"] = df_uploaded["Pareja de dobles"].fillna("")
+                    
             st.session_state.players_df = pd.concat([st.session_state.players_df, df_uploaded], ignore_index=True)
             st.session_state.processed_csv_files.append(uploaded_file.name)
             st.rerun() # Refresh the page immediately so the top metric cards recalculate

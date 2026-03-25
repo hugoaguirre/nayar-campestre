@@ -292,7 +292,9 @@ def apply_wimbledon_ui():
             align-items: center;
             justify-content: center;
             transition: all 0.3s ease;
-            position: relative;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
         }
         
         [data-testid="stSidebar"] [data-testid="stFileUploader"] section:hover {
@@ -361,6 +363,19 @@ def apply_wimbledon_ui():
             padding: 0 !important;
             box-sizing: border-box !important;
             overflow: hidden !important;
+            position: relative !important;
+        }
+
+        [data-testid="stFileUploader"] section {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            width: 100% !important;
+            height: 48px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
         }
 
         [data-testid="stTextInput"], 
@@ -383,6 +398,8 @@ def apply_wimbledon_ui():
             box-sizing: border-box !important;
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.1) !important;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            display: flex !important;
+            align-items: center !important;
         }
         
         [data-testid="stTextInput"] div[data-baseweb="input"]:focus-within,
@@ -401,6 +418,8 @@ def apply_wimbledon_ui():
             font-weight: 500 !important;
             background-color: transparent !important;
             -webkit-text-fill-color: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
 
         /* Placeholder Styling */
@@ -425,46 +444,70 @@ def apply_wimbledon_ui():
         /* Main Selectbox Container */
         div[data-testid="stSelectbox"] [data-baseweb="select"],
         div[data-testid="stSelectbox"] [data-baseweb="select"] > div {
-            background-color: #ffffff !important;
-            border-radius: 6px !important;
-            border: 1px solid transparent !important;
-            transition: all 0.2s ease-in-out !important;
+            background-color: transparent !important;
+            border: none !important;
         }
+        
+        div[data-testid="stSelectbox"] [data-baseweb="select"] {
+            background-color: rgba(255, 255, 255, 0.08) !important; 
+            backdrop-filter: blur(15px) !important;
+            border-radius: 50px !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            height: 48px !important;
+            min-height: 48px !important;
+            max-height: 48px !important;
+            box-sizing: border-box !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1) !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            padding: 0 1rem !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        
         div[data-testid="stSelectbox"] [data-baseweb="select"]:focus-within {
-            border-color: #450084 !important;
-            box-shadow: 0 0 0 2px rgba(69,0,132,0.4) !important;
+            box-shadow: 0 4px 20px rgba(204, 255, 0, 0.15) !important;
+            transform: translateY(-2px);
+            border-color: #CCFF00 !important; /* Tennis Ball Yellow glow */
+            background-color: rgba(255, 255, 255, 0.12) !important;
         }
         /* Selectbox Text & Icon */
         div[data-testid="stSelectbox"] [data-baseweb="select"] div {
-            color: #450084 !important;
+            color: #ffffff !important;
             font-family: 'Montserrat', sans-serif !important;
-            font-weight: 700 !important;
+            font-weight: 500 !important;
             background-color: transparent !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            height: 100% !important;
+            line-height: normal !important;
         }
         div[data-testid="stSelectbox"] [data-baseweb="select"] svg {
-            fill: #450084 !important;
+            fill: #ffffff !important;
         }
         /* Dropdown Options Popup Container */
         div[data-baseweb="popover"] {
-            background-color: #ffffff !important;
-            border-radius: 6px !important;
-            border: 1px solid rgba(69,0,132,0.2) !important;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+            background-color: rgba(0, 51, 25, 0.95) !important; /* Deep Green frosted */
+            backdrop-filter: blur(15px) !important;
+            border-radius: 12px !important;
+            border: 1px solid rgba(255,255,255,0.2) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
             overflow: hidden !important;
         }
         ul[role="listbox"] {
-            background-color: #ffffff !important;
+            background-color: transparent !important;
             padding: 0 !important;
         }
         /* Individual Dropdown Options */
         li[role="option"] {
-            background-color: #ffffff !important;
-            color: #450084 !important;
+            background-color: transparent !important;
+            color: #ffffff !important;
             font-family: 'Montserrat', sans-serif !important;
-            font-weight: 600 !important;
+            font-weight: 500 !important;
             padding: 0.75rem 1rem !important;
-            border-bottom: 1px solid rgba(69,0,132,0.05) !important;
-            transition: background-color 0.2s ease !important;
+            border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+            transition: all 0.2s ease !important;
         }
         li[role="option"]:last-child {
             border-bottom: none !important;
@@ -472,7 +515,7 @@ def apply_wimbledon_ui():
         li[role="option"]:hover, 
         li[role="option"][aria-selected="true"] {
             background-color: #450084 !important; /* Royal Purple hover */
-            color: #ffffff !important;
+            color: #CCFF00 !important; /* Yellow text on selection */
         }
         /* Custom JS Component Styling */
         
@@ -535,6 +578,38 @@ def apply_wimbledon_ui():
         /* 12. Hide System Trigger Input */
         div[data-testid="stTextInput"]:has(input[aria-label="hidden_edit_trigger"]) {
             display: none !important;
+        }
+
+        /* 13. Wimbledon Alerts (Notices/Tips/Success) */
+        div[data-testid="stAlert"] {
+            background-color: rgba(204, 255, 0, 0.08) !important; 
+            backdrop-filter: blur(15px) !important;
+            border: 1px solid rgba(204, 255, 0, 0.3) !important;
+            border-radius: 8px !important;
+        }
+        
+        div[data-testid="stAlert"] [data-testid="stMarkdownContainer"] *,
+        div[data-testid="stAlert"] [data-testid="stMarkdownContainer"] p {
+            color: #ffffff !important;
+            font-family: 'Montserrat', sans-serif !important;
+        }
+        
+        div[data-testid="stAlert"] svg,
+        div[data-testid="stAlert"] [data-testid="stIconMaterial"] {
+            fill: #CCFF00 !important;
+            color: #CCFF00 !important;
+        }
+        
+        /* RESTORE ERROR RED STYLING explicitly targeting the Streamlit native error icon path (h-2V7h2v6z) */
+        div[data-testid="stAlert"]:has(svg path[d*="h-2V7h2v6z"]) {
+            background-color: rgba(255, 43, 43, 0.1) !important;
+            border: 1px solid rgba(255, 43, 43, 0.4) !important;
+        }
+        
+        div[data-testid="stAlert"]:has(svg path[d*="h-2V7h2v6z"]) svg,
+        div[data-testid="stAlert"]:has(svg path[d*="h-2V7h2v6z"]) [data-testid="stIconMaterial"] {
+            fill: #ff2b2b !important;
+            color: #ff2b2b !important;
         }
     </style>
         """,
