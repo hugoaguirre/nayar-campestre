@@ -428,7 +428,24 @@ def apply_wimbledon_ui():
         /* Removed .luxury-wimbledon-table css from global scope 
            as it will be injected into the isolated component iframe */
 
-        /* 11. Custom Modal Styling for Dark Green UI */
+        /* 11. Custom Fonts for Expanders and internal elements (like Pills) */
+        [data-testid="stExpander"] *,
+        [data-testid*="SegmentedControl"] *,
+        [data-testid*="stPill"] *,
+        .stPills * {
+            font-family: 'Montserrat', sans-serif !important;
+        }
+        
+        /* Explicitly DEFEND the native chevron arrow so it doesn't break into raw text again */
+        [data-testid="stExpander"] summary svg,
+        [data-testid="stExpander"] summary .st-icon,
+        [data-testid="stExpander"] summary [class*="icon"],
+        [data-testid="stExpander"] summary [class*="material"],
+        [data-testid="stExpander"] summary [data-testid*="Icon"] {
+            font-family: "Material Symbols Rounded", "Material Icons", sans-serif !important;
+        }
+
+        /* 12. Custom Modal Styling for Dark Green UI */
         div[data-testid="stModal"] > div[role="dialog"] {
             background-color: #003319 !important; /* Dark Green */
             border: 2px solid #450084 !important; /* Purple Accent */

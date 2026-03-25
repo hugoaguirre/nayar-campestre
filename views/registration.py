@@ -125,13 +125,15 @@ def render_registration_view():
     
             st.text_input("Buscar Jugador", placeholder="   Buscar por nombre, apellido o celular...", label_visibility="collapsed", key="live_search_input")
     
-            # Form Filters (Unified)
-            f_filters = st.pills(
-                "Filtrar por:", 
-                ["Varonil", "Femenil", "Singles", "Dobles", "Pagado", "Pendiente"], 
-                default=[], 
-                selection_mode="multi"
-            )
+            # Form Filters (Accordion)
+            with st.expander("Filtros"):
+                f_filters = st.pills(
+                    "Filtros de Tabla", 
+                    ["Varonil", "Femenil", "Singles", "Dobles", "Pagado", "Pendiente"], 
+                    default=[], 
+                    selection_mode="multi",
+                    label_visibility="collapsed"
+                )
 
             # Parse Unified Filters
             f_cat = [f for f in f_filters if f in ["Varonil", "Femenil"]]
