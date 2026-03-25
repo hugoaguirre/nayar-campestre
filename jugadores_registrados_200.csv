@@ -1,0 +1,221 @@
+Nombre,Apellido,Categoría,Subcategoría,Celular,Pago,Singles,Dobles,Pareja de dobles
+Roberto,Castillo,Varonil,AA,3222575133,Pagado,Sí,Sí,Emilio Lopez
+Emilio,Lopez,Varonil,AA,3227718243,Pagado,Sí,Sí,Roberto Castillo
+Joaquin,Cruz,Varonil,AA,3222105239,Pendiente,Sí,Sí,Samuel Soto
+Samuel,Soto,Varonil,AA,3223905166,Pendiente,Sí,Sí,Joaquin Cruz
+Santiago,Ramirez,Varonil,AA,3226478091,Pagado,Sí,Sí,Samuel Rodriguez
+Samuel,Rodriguez,Varonil,AA,3225617414,Pendiente,Sí,Sí,Santiago Ramirez
+Luis,Rivera,Varonil,AA,3226424035,Pagado,Sí,Sí,Pablo Rivera
+Pablo,Rivera,Varonil,AA,3229304944,Pagado,Sí,Sí,Luis Rivera
+Santiago,Soto,Varonil,AA,3227833606,Pagado,Sí,Sí,Pablo Rodriguez
+Pablo,Rodriguez,Varonil,AA,3227136671,Pagado,Sí,Sí,Santiago Soto
+Tomas,Morales,Varonil,AA,3224909630,Pagado,Sí,Sí,Fernando Torres
+Fernando,Torres,Varonil,AA,3225449317,Pagado,Sí,Sí,Tomas Morales
+Carlos,Manzano,Varonil,AA,3226905324,Pagado,Sí,Sí,Alejandro Rodriguez
+Alejandro,Rodriguez,Varonil,AA,3227121403,Pagado,Sí,Sí,Carlos Manzano
+Fernando,Gomez,Varonil,AA,3226233071,Pendiente,Sí,No,
+Hugo,Aguirre,Varonil,AA,3227963126,Pagado,Sí,No,
+Pablo,Diaz,Varonil,AA,3225362365,Pendiente,Sí,No,
+Roberto,Sanchez,Varonil,AA,3224351661,Pagado,Sí,No,
+Alejandro,Morales,Varonil,AA,3228569627,Pagado,Sí,No,
+Emilio,Martinez,Varonil,AA,3224596399,Pendiente,Sí,No,
+Daniel,Fernandez,Varonil,AA,3229038833,Pagado,Sí,No,
+Gabriel,Lopez,Varonil,AA,3224846844,Pagado,Sí,No,
+Diego,Mendoza,Varonil,AA,3226385278,Pagado,Sí,No,
+Pablo,Silva,Varonil,AA,3224657766,Pagado,Sí,No,
+Eduardo,Silva,Varonil,AA,3222556725,Pendiente,Sí,No,
+Luis,Ruiz,Varonil,AA,3223958705,Pagado,Sí,No,
+Diego,Manzano,Varonil,A,3224631128,Pagado,Sí,Sí,Martin Ortiz
+Martin,Ortiz,Varonil,A,3228489991,Pendiente,Sí,Sí,Diego Manzano
+Mateo,Martinez,Varonil,A,3228848512,Pagado,Sí,Sí,Carlos Morales
+Carlos,Morales,Varonil,A,3226757806,Pendiente,Sí,Sí,Mateo Martinez
+Diego,Flores,Varonil,A,3226375909,Pagado,Sí,Sí,Carlos Rodriguez
+Carlos,Rodriguez,Varonil,A,3221179399,Pendiente,Sí,Sí,Diego Flores
+Luis,Ramirez,Varonil,A,3225711587,Pagado,Sí,Sí,Julian Rodriguez
+Julian,Rodriguez,Varonil,A,3221934550,Pagado,Sí,Sí,Luis Ramirez
+Mateo,Ortiz,Varonil,A,3226948033,Pendiente,Sí,Sí,Sebastian Mendoza
+Sebastian,Mendoza,Varonil,A,3226997085,Pagado,Sí,Sí,Mateo Ortiz
+Santiago,Ortiz,Varonil,A,3222203074,Pendiente,Sí,Sí,Samuel Morales
+Samuel,Morales,Varonil,A,3224229924,Pagado,Sí,Sí,Santiago Ortiz
+Andres,Mendoza,Varonil,A,3225906061,Pagado,Sí,No,
+Eduardo,Hernandez,Varonil,A,3226687649,Pagado,Sí,No,
+Pablo,Sanchez,Varonil,A,3222934321,Pagado,Sí,No,
+Jorge,Garcia,Varonil,A,3227894186,Pagado,Sí,No,
+Gabriel,Diaz,Varonil,A,3223306288,Pagado,Sí,No,
+Roberto,Hernandez,Varonil,A,3228962749,Pagado,Sí,No,
+Pablo,Flores,Varonil,A,3228125760,Pagado,Sí,No,
+Diego,Silva,Varonil,A,3223186388,Pagado,Sí,No,
+Miguel,Morales,Varonil,A,3225055264,Pagado,Sí,No,
+Sebastian,Castillo,Varonil,B,3225744775,Pagado,Sí,Sí,Miguel Ruiz
+Miguel,Ruiz,Varonil,B,3229043721,Pagado,Sí,Sí,Sebastian Castillo
+Carlos,Martinez,Varonil,B,3222017949,Pagado,Sí,Sí,Miguel Sanchez
+Miguel,Sanchez,Varonil,B,3224619481,Pendiente,Sí,Sí,Carlos Martinez
+Miguel,Soto,Varonil,B,3229075966,Pendiente,Sí,Sí,David Sanchez
+David,Sanchez,Varonil,B,3222489484,Pagado,Sí,Sí,Miguel Soto
+Emilio,Ramirez,Varonil,B,3228782462,Pagado,Sí,Sí,Sebastian Hernandez
+Sebastian,Hernandez,Varonil,B,3224178519,Pagado,Sí,Sí,Emilio Ramirez
+Daniel,Chavez,Varonil,B,3229751770,Pagado,Sí,Sí,David Fernandez
+David,Fernandez,Varonil,B,3228565171,Pagado,Sí,Sí,Daniel Chavez
+Julian,Reyes,Varonil,B,3226757608,Pagado,Sí,No,
+Jorge,Ruiz,Varonil,B,3221219797,Pagado,Sí,No,
+Gabriel,Reyes,Varonil,B,3223081406,Pagado,Sí,No,
+Julian,Soto,Varonil,B,3224096222,Pagado,Sí,No,
+Samuel,Manzano,Varonil,B,3229526502,Pagado,Sí,No,
+Tomas,Diaz,Varonil,B,3227796802,Pagado,Sí,No,
+Leonardo,Cruz,Varonil,B,3224426640,Pagado,Sí,No,
+Emilio,Gutierrez,Varonil,B,3228657431,Pagado,Sí,No,
+Samuel,Ruiz,Varonil,C,3229702116,Pagado,Sí,Sí,Roberto Gonzalez
+Roberto,Gonzalez,Varonil,C,3225666060,Pagado,Sí,Sí,Samuel Ruiz
+Joaquin,Rivera,Varonil,C,3228208309,Pagado,Sí,Sí,Miguel Ramirez
+Miguel,Ramirez,Varonil,C,3229312651,Pagado,Sí,Sí,Joaquin Rivera
+David,Hernandez,Varonil,C,3221513510,Pagado,Sí,Sí,Martin Gutierrez
+Martin,Gutierrez,Varonil,C,3226317148,Pagado,Sí,Sí,David Hernandez
+Alejandro,Gomez,Varonil,C,3223673606,Pagado,Sí,Sí,Eduardo Gutierrez
+Eduardo,Gutierrez,Varonil,C,3229634458,Pagado,Sí,Sí,Alejandro Gomez
+Julian,Rivera,Varonil,C,3221692675,Pagado,Sí,Sí,Daniel Martinez
+Daniel,Martinez,Varonil,C,3221943419,Pendiente,Sí,Sí,Julian Rivera
+Carlos,Soto,Varonil,C,3225061147,Pendiente,Sí,Sí,Emilio Rodriguez
+Emilio,Rodriguez,Varonil,C,3223145534,Pagado,Sí,Sí,Carlos Soto
+Pablo,Perez,Varonil,C,3229533402,Pagado,Sí,No,
+Roberto,Chavez,Varonil,C,3226058836,Pagado,Sí,No,
+Diego,Diaz,Varonil,C,3224665679,Pendiente,Sí,No,
+Pablo,Fernandez,Varonil,C,3225906962,Pendiente,Sí,No,
+Miguel,Garcia,Varonil,C,3225798956,Pendiente,Sí,No,
+Leonardo,Ramirez,Varonil,C,3223255431,Pagado,Sí,No,
+Mateo,Soto,Varonil,C,3222784293,Pagado,Sí,No,
+Roberto,Rodriguez,Varonil,C,3223016823,Pagado,Sí,No,
+Roberto,Mendoza,Varonil,D,3228996615,Pagado,Sí,Sí,Gabriel Garcia
+Gabriel,Garcia,Varonil,D,3227194160,Pendiente,Sí,Sí,Roberto Mendoza
+David,Flores,Varonil,D,3224293534,Pagado,Sí,Sí,Miguel Silva
+Miguel,Silva,Varonil,D,3228867914,Pagado,Sí,Sí,David Flores
+Julian,Mendoza,Varonil,D,3224693545,Pagado,Sí,Sí,Hugo Fernandez
+Hugo,Fernandez,Varonil,D,3224925572,Pagado,Sí,Sí,Julian Mendoza
+Fernando,Cruz,Varonil,D,3225674402,Pagado,Sí,Sí,Joaquin Mendoza
+Joaquin,Mendoza,Varonil,D,3223953345,Pagado,Sí,Sí,Fernando Cruz
+Santiago,Chavez,Varonil,D,3229732872,Pendiente,Sí,Sí,Tomas Sanchez
+Tomas,Sanchez,Varonil,D,3228601270,Pagado,Sí,Sí,Santiago Chavez
+Miguel,Martinez,Varonil,D,3228371662,Pagado,Sí,Sí,Joaquin Lopez
+Joaquin,Lopez,Varonil,D,3224664378,Pagado,Sí,Sí,Miguel Martinez
+Alejandro,Sanchez,Varonil,D,3222158467,Pagado,Sí,Sí,Joaquin Soto
+Joaquin,Soto,Varonil,D,3222383286,Pagado,Sí,Sí,Alejandro Sanchez
+Luis,Soto,Varonil,D,3224911286,Pagado,Sí,No,
+Fernando,Ramirez,Varonil,D,3225828965,Pagado,Sí,No,
+Leonardo,Mendoza,Varonil,D,3229166152,Pagado,Sí,No,
+Sebastian,Morales,Varonil,D,3221097474,Pagado,Sí,No,
+Tomas,Garcia,Varonil,D,3224385006,Pagado,Sí,No,
+Emilio,Aguirre,Varonil,D,3221251280,Pagado,Sí,No,
+Miguel,Gutierrez,Varonil,D,3225231799,Pagado,Sí,No,
+Luis,Perez,Varonil,D,3228334896,Pagado,Sí,No,
+Gabriel,Soto,Varonil,D,3226377556,Pendiente,Sí,No,
+Mateo,Gonzalez,Varonil,D,3229443615,Pagado,Sí,No,
+Samuel,Flores,Varonil,D,3229948184,Pagado,Sí,No,
+Martin,Sanchez,Varonil,Mini-Tenis,3229314972,Pendiente,Sí,Sí,Emilio Cruz
+Emilio,Cruz,Varonil,Mini-Tenis,3223683160,Pagado,Sí,Sí,Martin Sanchez
+Tomas,Rivera,Varonil,Mini-Tenis,3224893239,Pendiente,Sí,Sí,Leonardo Ruiz
+Leonardo,Ruiz,Varonil,Mini-Tenis,3225246129,Pagado,Sí,Sí,Tomas Rivera
+Luis,Silva,Varonil,Mini-Tenis,3222261371,Pagado,Sí,Sí,Julian Morales
+Julian,Morales,Varonil,Mini-Tenis,3221399473,Pagado,Sí,Sí,Luis Silva
+Santiago,Gomez,Varonil,Mini-Tenis,3225425331,Pagado,Sí,No,
+Diego,Gonzalez,Varonil,Mini-Tenis,3227561261,Pendiente,Sí,No,
+Julian,Castillo,Varonil,Mini-Tenis,3229325995,Pagado,Sí,No,
+Carlos,Gutierrez,Varonil,Mini-Tenis,3223794537,Pagado,Sí,No,
+Samuel,Ramirez,Varonil,8-10 años,3226047720,Pagado,Sí,Sí,Samuel Martinez
+Samuel,Martinez,Varonil,8-10 años,3223738836,Pagado,Sí,Sí,Samuel Ramirez
+Samuel,Gutierrez,Varonil,8-10 años,3229175801,Pagado,Sí,Sí,Emilio Torres
+Emilio,Torres,Varonil,8-10 años,3229396773,Pagado,Sí,Sí,Samuel Gutierrez
+Santiago,Morales,Varonil,8-10 años,3226427514,Pagado,Sí,No,
+Mateo,Morales,Varonil,8-10 años,3222678346,Pagado,Sí,No,
+Luis,Martinez,Varonil,8-10 años,3221066513,Pagado,Sí,No,
+Mateo,Rivera,Varonil,8-10 años,3228002458,Pagado,Sí,No,
+Carlos,Perez,Varonil,8-10 años,3221839753,Pagado,Sí,No,
+Elena,Cruz,Femenil,AA,3226443339,Pagado,Sí,Sí,Sofia Hernandez
+Sofia,Hernandez,Femenil,AA,3223536602,Pagado,Sí,Sí,Elena Cruz
+Romina,Ruiz,Femenil,AA,3224344944,Pagado,Sí,Sí,Julia Castillo
+Julia,Castillo,Femenil,AA,3222783713,Pagado,Sí,Sí,Romina Ruiz
+Renata,Flores,Femenil,AA,3228164998,Pagado,Sí,Sí,Julia Martinez
+Julia,Martinez,Femenil,AA,3227549209,Pendiente,Sí,Sí,Renata Flores
+Isabella,Lopez,Femenil,AA,3223108738,Pagado,Sí,Sí,Natalia Rivera
+Natalia,Rivera,Femenil,AA,3226805475,Pagado,Sí,Sí,Isabella Lopez
+Elena,Soto,Femenil,AA,3229607784,Pagado,Sí,No,
+Carmen,Diaz,Femenil,AA,3225228937,Pagado,Sí,No,
+Regina,Ruiz,Femenil,AA,3223628430,Pendiente,Sí,No,
+Romina,Rivera,Femenil,AA,3222735146,Pagado,Sí,No,
+Luciana,Chavez,Femenil,AA,3226912711,Pagado,Sí,No,
+Fernanda,Gomez,Femenil,AA,3224975393,Pendiente,Sí,No,
+Paula,Rodriguez,Femenil,AA,3224134727,Pagado,Sí,No,
+Fernanda,Ruiz,Femenil,A,3223671457,Pagado,Sí,Sí,Andrea Chavez
+Andrea,Chavez,Femenil,A,3224211342,Pagado,Sí,Sí,Fernanda Ruiz
+Valeria,Chavez,Femenil,A,3228708929,Pagado,Sí,Sí,Natalia Mendoza
+Natalia,Mendoza,Femenil,A,3227344354,Pagado,Sí,Sí,Valeria Chavez
+Luciana,Flores,Femenil,A,3222764624,Pagado,Sí,Sí,Renata Ortiz
+Renata,Ortiz,Femenil,A,3228478257,Pendiente,Sí,Sí,Luciana Flores
+Luciana,Manzano,Femenil,A,3225641713,Pendiente,Sí,Sí,Valentina Ramirez
+Valentina,Ramirez,Femenil,A,3226317444,Pagado,Sí,Sí,Luciana Manzano
+Valeria,Sanchez,Femenil,A,3227838168,Pendiente,Sí,Sí,Romina Rodriguez
+Romina,Rodriguez,Femenil,A,3227298165,Pagado,Sí,Sí,Valeria Sanchez
+Ana,Silva,Femenil,A,3227091393,Pagado,Sí,No,
+Daniela,Hernandez,Femenil,A,3227345067,Pendiente,Sí,No,
+Valentina,Soto,Femenil,A,3225151694,Pagado,Sí,No,
+Julia,Ruiz,Femenil,A,3227634114,Pagado,Sí,No,
+Isabella,Perez,Femenil,A,3227291243,Pagado,Sí,No,
+Andrea,Ortiz,Femenil,A,3226145264,Pendiente,Sí,No,
+Julia,Soto,Femenil,A,3228921176,Pagado,Sí,No,
+Ximena,Hernandez,Femenil,A,3222416661,Pagado,Sí,No,
+Valeria,Rodriguez,Femenil,A,3224765398,Pendiente,Sí,No,
+Samantha,Torres,Femenil,B,3227104401,Pagado,Sí,Sí,Laura Manzano
+Laura,Manzano,Femenil,B,3228562961,Pagado,Sí,Sí,Samantha Torres
+Ana,Manzano,Femenil,B,3225062871,Pagado,Sí,Sí,Romina Martinez
+Romina,Martinez,Femenil,B,3226131958,Pagado,Sí,Sí,Ana Manzano
+Luciana,Reyes,Femenil,B,3222966883,Pagado,Sí,Sí,Ana Rodriguez
+Ana,Rodriguez,Femenil,B,3222074163,Pagado,Sí,Sí,Luciana Reyes
+Paula,Chavez,Femenil,B,3227112255,Pagado,Sí,Sí,Daniela Rivera
+Daniela,Rivera,Femenil,B,3222579645,Pagado,Sí,Sí,Paula Chavez
+Maria,Gutierrez,Femenil,B,3229721310,Pendiente,Sí,No,
+Fernanda,Flores,Femenil,B,3225751793,Pendiente,Sí,No,
+Andrea,Garcia,Femenil,B,3224948691,Pagado,Sí,No,
+Victoria,Ortiz,Femenil,B,3224458621,Pagado,Sí,No,
+Ximena,Torres,Femenil,B,3221983358,Pendiente,Sí,No,
+Camila,Ortiz,Femenil,B,3229019794,Pagado,Sí,No,
+Carmen,Reyes,Femenil,C,3222241522,Pagado,Sí,Sí,Elena Garcia
+Elena,Garcia,Femenil,C,3229312104,Pendiente,Sí,Sí,Carmen Reyes
+Carmen,Manzano,Femenil,C,3227349812,Pagado,Sí,Sí,Andrea Gonzalez
+Andrea,Gonzalez,Femenil,C,3221638206,Pendiente,Sí,Sí,Carmen Manzano
+Julia,Sanchez,Femenil,C,3225626072,Pagado,Sí,Sí,Ximena Gonzalez
+Ximena,Gonzalez,Femenil,C,3221239649,Pendiente,Sí,Sí,Julia Sanchez
+Fernanda,Gonzalez,Femenil,C,3222659826,Pagado,Sí,Sí,Valeria Ortiz
+Valeria,Ortiz,Femenil,C,3224702859,Pagado,Sí,Sí,Fernanda Gonzalez
+Ximena,Ramirez,Femenil,C,3225836926,Pagado,Sí,Sí,Natalia Gonzalez
+Natalia,Gonzalez,Femenil,C,3223697347,Pagado,Sí,Sí,Ximena Ramirez
+Daniela,Rodriguez,Femenil,C,3228261440,Pagado,Sí,No,
+Luciana,Silva,Femenil,C,3229781886,Pagado,Sí,No,
+Samantha,Castillo,Femenil,C,3224573925,Pagado,Sí,No,
+Romina,Sanchez,Femenil,C,3222729729,Pagado,Sí,No,
+Valentina,Gutierrez,Femenil,C,3228401806,Pendiente,Sí,No,
+Isabella,Mendoza,Femenil,C,3228236403,Pagado,Sí,No,
+Ximena,Silva,Femenil,C,3228239732,Pagado,Sí,No,
+Laura,Torres,Femenil,C,3226814635,Pagado,Sí,No,
+Fernanda,Silva,Femenil,D,3225487074,Pagado,Sí,Sí,Daniela Cruz
+Daniela,Cruz,Femenil,D,3222903860,Pendiente,Sí,Sí,Fernanda Silva
+Daniela,Silva,Femenil,D,3227561268,Pagado,Sí,Sí,Ximena Mendoza
+Ximena,Mendoza,Femenil,D,3225668955,Pagado,Sí,Sí,Daniela Silva
+Laura,Martinez,Femenil,D,3222953610,Pendiente,Sí,Sí,Natalia Sanchez
+Natalia,Sanchez,Femenil,D,3227423525,Pagado,Sí,Sí,Laura Martinez
+Elena,Ortiz,Femenil,D,3222783819,Pagado,Sí,Sí,Valeria Gonzalez
+Valeria,Gonzalez,Femenil,D,3223501440,Pagado,Sí,Sí,Elena Ortiz
+Regina,Fernandez,Femenil,D,3227134201,Pagado,Sí,No,
+Ana,Diaz,Femenil,D,3223993612,Pagado,Sí,No,
+Ana,Gomez,Femenil,D,3224348347,Pagado,Sí,No,
+Daniela,Sanchez,Femenil,D,3221553200,Pagado,Sí,No,
+Fernanda,Castillo,Femenil,D,3228847986,Pagado,Sí,No,
+Natalia,Castillo,Femenil,D,3228755197,Pendiente,Sí,No,
+Romina,Castillo,Femenil,Mini-Tenis,3229919853,Pagado,Sí,Sí,Laura Rivera
+Laura,Rivera,Femenil,Mini-Tenis,3222688968,Pagado,Sí,Sí,Romina Castillo
+Samantha,Diaz,Femenil,Mini-Tenis,3222563217,Pendiente,Sí,No,
+Valeria,Soto,Femenil,Mini-Tenis,3226284193,Pagado,Sí,No,
+Sofia,Gutierrez,Femenil,Mini-Tenis,3226041898,Pagado,Sí,No,
+Natalia,Ruiz,Femenil,8-10 años,3227071274,Pagado,Sí,Sí,Valentina Castillo
+Valentina,Castillo,Femenil,8-10 años,3222711607,Pagado,Sí,Sí,Natalia Ruiz
+Paula,Garcia,Femenil,8-10 años,3223874592,Pagado,Sí,No,
+Romina,Perez,Femenil,8-10 años,3225338949,Pagado,Sí,No,
+Regina,Martinez,Femenil,8-10 años,3223392997,Pagado,Sí,No,
+Elena,Mendoza,Femenil,8-10 años,3221763389,Pagado,Sí,No,

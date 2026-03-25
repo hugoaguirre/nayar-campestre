@@ -7,6 +7,7 @@ from components.header import render_hero_header
 from components.metrics import render_metrics
 from views.registration import render_registration_view
 from views.draw import render_draw_view
+from views.bracket import render_bracket_view
 from views.export import render_export_view
 
 # --- 1. PAGE CONFIG & THEME INJECTION ---
@@ -31,8 +32,8 @@ render_hero_header(t_name, l_logo, r_logo)
 render_metrics()
 
 # --- 6. MAIN NAVIGATION ---
-tab_reg, tab_draw, tab_print = st.tabs(
-    ["01 REGISTRO", "02 GENERAR DRAW", "03 EXPORTAR & IMPRIMIR"]
+tab_reg, tab_draw, tab_bracket, tab_print = st.tabs(
+    ["01 REGISTRO", "02 GENERAR DRAW", "03 PREVISUALIZAR LLAVES", "04 EXPORTAR & IMPRIMIR"]
 )
 
 with tab_reg:
@@ -40,6 +41,9 @@ with tab_reg:
 
 with tab_draw:
     render_draw_view()
+
+with tab_bracket:
+    render_bracket_view(t_name)
 
 with tab_print:
     render_export_view()
