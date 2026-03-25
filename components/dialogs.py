@@ -119,12 +119,12 @@ def show_add_player_dialog():
     if st.button("GUARDAR", type="primary", use_container_width=True):
         if f_name and f_last and f_phone:
             new_player = pd.DataFrame([{
-                "Categoría": f_cat,
-                "Subcategoría": f_scat,
                 "Nombre": f_name,
                 "Apellido": f_last,
-                "Celular": f_phone,
+                "Subcategoría": f_scat,
+                "Categoría": f_cat,
                 "Pago": f_pago,
+                "Celular": f_phone,
                 "Singles": "Sí" if f_singles else "No",
                 "Dobles": "Sí" if f_dobles else "No"
             }])

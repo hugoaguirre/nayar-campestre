@@ -41,6 +41,8 @@ def render_registration_view():
             width: 100%;
             height: 48px !important;
             min-height: 48px !important;
+            max-height: 48px !important;
+            box-sizing: border-box !important;
             cursor: {'not-allowed' if is_uploaded else 'pointer'};
             display: flex;
             align-items: center;
@@ -78,6 +80,13 @@ def render_registration_view():
         """
         st.markdown(css_state, unsafe_allow_html=True)
         
+        # Preemptively enforce exactly the new column order Requested by user before ANY display/export outputs 
+        desired_cols = ["Nombre", "Apellido", "Subcategoría", "Categoría", "Pago", "Celular", "Singles", "Dobles"]
+        for c in desired_cols:
+             if c not in st.session_state.players_df.columns:
+                 st.session_state.players_df[c] = "Sí" if c in ["Singles", "Dobles"] else ""
+        st.session_state.players_df = st.session_state.players_df[desired_cols]
+
         csv_data = st.session_state.players_df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="GUARDAR JUGADORES",
@@ -101,20 +110,13 @@ def render_registration_view():
             st.session_state.processed_csv_files.append(uploaded_file.name)
             st.rerun() # Refresh the page immediately so the top metric cards recalculate
             
-        # Backfill tracking columns for older CSV imports
-        for col in ["Singles", "Dobles"]:
-            if col not in st.session_state.players_df.columns:
-                st.session_state.players_df[col] = "Sí"
-            else:
-                st.session_state.players_df[col] = st.session_state.players_df[col].fillna("Sí")
-                
         display_df = st.session_state.players_df.copy()
             
         if display_df.empty:
             st.subheader(" ")
             st.warning("Para empezar, importa un archivo de Excel con la información de los jugadores que participarán en el torneo", icon="🎾")
         else:
-            st.subheader(f"LISTA DE JUGADORES ({len(display_df)})")
+            st.markdown(f"### LISTA DE JUGADORES ({len(display_df)})")
     
             # We need to compute an upward relative path since the component is still in the root folder.
             component_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "custom_table_component")

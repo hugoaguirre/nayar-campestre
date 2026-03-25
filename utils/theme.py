@@ -66,6 +66,11 @@ def apply_wimbledon_ui():
 
         /* 3. Wimbledon Action Buttons */
         div[data-testid="stButton"],
+        div[data-testid="stDownloadButton"] {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
         div[data-testid="stButton"] > button,
         div.stButton > button,
         div[data-testid="stDownloadButton"] > button,
@@ -79,9 +84,13 @@ def apply_wimbledon_ui():
             color: #ffffff !important; 
             border: 2px solid #ffffff !important;
             border-radius: 4px !important; 
-            padding: 0.75rem 1.5rem !important;
+            padding: 0 !important;
             transition: all 0.3s ease;
             box-shadow: none !important;
+            height: 48px !important;
+            min-height: 48px !important;
+            max-height: 48px !important;
+            box-sizing: border-box !important;
         }
         
         div.stButton > button p, div[data-testid="stDownloadButton"] > button p {
@@ -318,47 +327,89 @@ def apply_wimbledon_ui():
         }
         
         /* 9. Luxurious Wimbledon Table & Live Search */
-        /* Aggressively target ALL base web inputs entirely to force pure white backgrounds */
-        [data-testid="stTextInput"] div[data-baseweb="input"],
+        /* Aggressively clear Streamlit's native input formatting */
         [data-testid="stTextInput"] div[data-baseweb="input"] > div,
-        div.stKeyup div[data-baseweb="input"],
         div.stKeyup div[data-baseweb="input"] > div {
-            background-color: #ffffff !important;
-            background: #ffffff !important;
+            background-color: transparent !important;
+            background: transparent !important;
         }
 
-        /* The Live Search Pill Container */
-        div.stKeyup > div > div {
+        /* Sync input wrapper margins and heights identical to button offsets */
+        [data-testid="stTextInput"], 
+        [data-testid="stExpander"] {
+            /* Inheriting native gap structure */
+        }
+        
+        /* Neutralize any phantom spacing from invisible labels so elements sit flush */
+        [data-testid="stTextInput"] div[data-testid="stWidgetLabel"],
+        [data-testid="stFileUploader"] div[data-testid="stWidgetLabel"],
+        [data-testid="stFileUploader"] small,
+        [data-testid="stFileUploader"] [data-testid="stMarkdownContainer"] {
+            display: none !important;
+            height: 0px !important;
+            min-height: 0px !important;
+            margin: 0px !important;
+            padding: 0px !important;
+        }
+
+        /* Stop native Streamlit Uploader wrapper from commanding 100px+ height */
+        [data-testid="stFileUploader"] {
+            height: 48px !important;
+            min-height: 48px !important;
+            max-height: 48px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+        }
+
+        [data-testid="stTextInput"], 
+        [data-testid="stExpander"] {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Provide a unified Frosted Glass shell to all text inputs (Live Search, Modals, etc.) */
+        [data-testid="stTextInput"] div[data-baseweb="input"],
+        div.stKeyup div[data-baseweb="input"] {
             border-radius: 50px !important;
-            border: 2px solid #450084 !important;
-            background-color: #ffffff !important; 
-            padding: 0.2rem 1rem !important;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            background-color: rgba(255, 255, 255, 0.08) !important; 
+            backdrop-filter: blur(15px) !important;
+            padding: 0 1rem !important;
+            height: 48px !important;
+            min-height: 48px !important;
+            max-height: 48px !important;
+            box-sizing: border-box !important;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1) !important;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         }
-        div.stKeyup > div > div:focus-within {
-            box-shadow: 0 6px 20px rgba(69,0,132,0.6) !important;
+        
+        [data-testid="stTextInput"] div[data-baseweb="input"]:focus-within,
+        div.stKeyup div[data-baseweb="input"]:focus-within {
+            box-shadow: 0 4px 20px rgba(204, 255, 0, 0.15) !important;
             transform: translateY(-2px);
-            border-color: #ffffff !important;
+            border-color: #CCFF00 !important; /* Tennis Ball Yellow glow */
+            background-color: rgba(255, 255, 255, 0.12) !important;
         }
         
         /* The Actual Input Text */
         div.stKeyup input,
         [data-testid="stTextInput"] input {
-            color: #450084 !important; /* Regal Purple Text */
+            color: #ffffff !important; /* Premium White Text */
             font-family: 'Montserrat', sans-serif !important;
-            font-weight: 700 !important;
+            font-weight: 500 !important;
             background-color: transparent !important;
-            -webkit-text-fill-color: #450084 !important;
+            -webkit-text-fill-color: #ffffff !important;
         }
 
         /* Placeholder Styling */
         div.stKeyup input::placeholder,
         [data-testid="stTextInput"] input::placeholder {
-            color: rgba(69, 0, 132, 0.4) !important; /* Opaque Regal Purple */
-            -webkit-text-fill-color: rgba(69, 0, 132, 0.4) !important;
+            color: rgba(255, 255, 255, 0.6) !important; /* Frosted White */
+            -webkit-text-fill-color: rgba(255, 255, 255, 0.6) !important;
             font-style: italic !important;
-            font-weight: 500 !important;
+            font-weight: 400 !important;
             transition: opacity 0.2s ease-in-out !important;
         }
 
@@ -427,6 +478,21 @@ def apply_wimbledon_ui():
         
         /* Removed .luxury-wimbledon-table css from global scope 
            as it will be injected into the isolated component iframe */
+
+        /* Expander Geometry Syncing */
+        [data-testid="stExpander"] details, 
+        [data-testid="stExpander"] {
+            margin: 0 !important; 
+            padding: 0 !important;
+        }
+        
+        [data-testid="stExpander"] details summary {
+            height: 48px !important;
+            min-height: 48px !important;
+            max-height: 48px !important;
+            padding: 0 1rem !important; /* Restore left/right padding for chevron */
+            box-sizing: border-box !important;
+        }
 
         /* 11. Custom Fonts for Expanders and internal elements (like Pills) */
         [data-testid="stExpander"] *,
