@@ -123,20 +123,24 @@ def render_bracket_view(t_name):
     st.success(f"**Visualizando llave oficial para:** {f_cat} - {f_scat} ({f_fmt})")
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # 1. Isolate Seeds and Unseeded
+    # 1. Isolate Group Winners mapping (Instead of all players)
     seeds = []
     unseeded = []
     
     for g_name, pts in draw_data["groups"].items():
-        for p in pts:
-            p_name = f"{p['Nombre']} {p['Apellido']}".strip()
-            if p.get("is_seed"):
-                seeds.append(p_name)
-            else:
-                unseeded.append(p_name)
+        # A group has exactly 1 winner advancing to the playoff bracket.
+        # Check if this group was anchored by a seeded player
+        seeded_player = next((p for p in pts if p.get("is_seed")), None)
+        
+        # We label the bracket slot so the coach knows exactly who writes their name here after the groups!
+        if seeded_player:
+            seed_name = f"{seeded_player['Nombre']} {seeded_player['Apellido']}".strip()
+            seeds.append(f"Ganador {g_name} ({seed_name})")
+        else:
+            unseeded.append(f"Ganador {g_name}")
                 
-    total_players = len(seeds) + len(unseeded)
-    pow2 = get_next_power_of_2(total_players)
+    total_groups = len(seeds) + len(unseeded)
+    pow2 = get_next_power_of_2(total_groups)
     if pow2 < 4: pow2 = 4
     
     # Pad unseeded with BYEs
