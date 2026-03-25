@@ -125,6 +125,33 @@ def render_registration_view():
     
             st.text_input("Buscar Jugador", placeholder="   Buscar por nombre, apellido o celular...", label_visibility="collapsed", key="live_search_input")
     
+            # Form Filters (Unified)
+            f_filters = st.pills(
+                "Filtrar por:", 
+                ["Varonil", "Femenil", "Singles", "Dobles", "Pagado", "Pendiente"], 
+                default=[], 
+                selection_mode="multi"
+            )
+
+            # Parse Unified Filters
+            f_cat = [f for f in f_filters if f in ["Varonil", "Femenil"]]
+            f_format = [f for f in f_filters if f in ["Singles", "Dobles"]]
+            f_pago = [f for f in f_filters if f in ["Pagado", "Pendiente"]]
+
+            # Apply Pandas Masks
+            if f_cat:
+                display_df = display_df[display_df["Categoría"].isin(f_cat)]
+                
+            if "Singles" in f_format and "Dobles" not in f_format:
+                display_df = display_df[display_df["Singles"] == "Sí"]
+            elif "Dobles" in f_format and "Singles" not in f_format:
+                display_df = display_df[display_df["Dobles"] == "Sí"]
+            elif "Singles" in f_format and "Dobles" in f_format:
+                display_df = display_df[(display_df["Singles"] == "Sí") | (display_df["Dobles"] == "Sí")]
+                
+            if f_pago:
+                display_df = display_df[display_df["Pago"].isin(f_pago)]
+
             def html_table_component(df):
                 # Inject the row index as a hidden span into the first column of each row
                 df_html = df.copy()
@@ -144,8 +171,7 @@ def render_registration_view():
                 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
                 
                 .table-scroll-container {
-                    max-height: 85vh;
-                    min-height: 600px;
+                    max-height: 700px;
                     overflow-x: auto;
                     overflow-y: auto;
                     border-radius: 12px;
@@ -170,8 +196,9 @@ def render_registration_view():
                 }
                 
                 .luxury-wimbledon-table {
-                    width: 100%; border-collapse: collapse; border-spacing: 0;
+                    min-width: 1200px !important; border-collapse: collapse; border-spacing: 0;
                     color: #ffffff; font-family: 'Montserrat', sans-serif;
+                    table-layout: auto !important;
                 }
                 .luxury-wimbledon-table thead th {
                     position: sticky; top: 0; z-index: 10;
@@ -180,11 +207,20 @@ def render_registration_view():
                     padding: 1.2rem 1rem; text-align: left; border-bottom: 2px solid #ffffff;
                     backdrop-filter: blur(5px); cursor: pointer; user-select: none;
                     transition: background-color 0.2s;
+                    white-space: nowrap !important;
+                    min-width: 120px !important;
+                    word-break: keep-all !important;
                 }
                 .luxury-wimbledon-table thead th:hover { background-color: rgba(69,0,132,1); }
                 .luxury-wimbledon-table tbody tr { transition: all 0.2s ease; }
                 .luxury-wimbledon-table tbody tr:hover { background-color: rgba(255,255,255,0.1); cursor: pointer; }
-                .luxury-wimbledon-table td { padding: 1rem; font-size: 0.95rem; font-weight: 400; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+                .luxury-wimbledon-table td { 
+                    padding: 1rem; font-size: 0.95rem; font-weight: 400; 
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+                    white-space: nowrap !important;
+                    min-width: 120px !important;
+                    word-break: keep-all !important;
+                }
                 .luxury-wimbledon-table tbody tr:last-child td { border-bottom: none; }
                 /* Extra wrapper fix */
                 body { margin: 0; padding: 0; overflow: hidden; }
@@ -194,20 +230,39 @@ def render_registration_view():
                 # Compile full HTML string to pass to the React bridge
                 full_html = f"{custom_css}<div class='table-scroll-container'>{table_html}</div>"
                 
-                # Call the declared component. `html_content` gets serialized and passed to JS.
-                return _table_component(html_content=full_html, key="table_view")
+                # ---------------------------------------------------------------------
+                # Dynamic Iframe Height Calculator
+                # ---------------------------------------------------------------------
+                # The custom component iframe needs to safely expand and contract based 
+                # on the dataframe size. To avoid relying on buggy React height sensors,
+                # we calculate the exact physical pixel height required natively in Python.
+                # ---------------------------------------------------------------------
+                MAX_IFRAME_HEIGHT = 750  # Prevent the table iframe from growing larger than 750 pixels
+                TABLE_HEADER_HEIGHT = 50 # Physical pixel height of the CSS list headers
+                ROW_HEIGHT = 55          # Average physical height of a single player row
+                BASE_PADDING = 50        # Extra buffer padding for the container borders
+                
+                calculated_height = min(
+                    MAX_IFRAME_HEIGHT, 
+                    TABLE_HEADER_HEIGHT + (len(df_html) * ROW_HEIGHT) + BASE_PADDING
+                )
+                return _table_component(html_content=full_html, key="table_view", default_height=calculated_height)
     
-            # Call the component wrapper. It yields the string index of the clicked row.
-            clicked_idx_str = html_table_component(display_df)
-            
-            # If the Custom Component returned a value (a user clicked), show the dialog!
-            if clicked_idx_str is not None:
-                # We must use session state to ensure the dialog stays open after interaction
-                if "last_clicked_row" not in st.session_state or st.session_state.last_clicked_row != clicked_idx_str:
-                    st.session_state.last_clicked_row = clicked_idx_str
-                    # Extract the row index from the timestamped payload (e.g., "5_1734919293")
-                    idx = int(str(clicked_idx_str).split("_")[0])
-                    show_edit_player_dialog(idx)
+            if display_df.empty:
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.warning("Ups, parece ser que no hay nadie con esas condiciones", icon="🎾")
+            else:
+                # Call the component wrapper. It yields the string index of the clicked row.
+                clicked_idx_str = html_table_component(display_df)
+                
+                # If the Custom Component returned a value (a user clicked), show the dialog!
+                if clicked_idx_str is not None:
+                    # We must use session state to ensure the dialog stays open after interaction
+                    if "last_clicked_row" not in st.session_state or st.session_state.last_clicked_row != clicked_idx_str:
+                        st.session_state.last_clicked_row = clicked_idx_str
+                        # Extract the row index from the timestamped payload (e.g., "5_1734919293")
+                        idx = int(str(clicked_idx_str).split("_")[0])
+                        show_edit_player_dialog(idx)
     
             # ---------------------------------------------------------
             # Bridge the parent "Buscar Jugador" to the iframe 
@@ -217,24 +272,24 @@ def render_registration_view():
                 """
                 <script>
                 const doc = window.parent.document;
-                const input = doc.querySelector('input[aria-label="Buscar Jugador"]');
                 
+                // 1. Live Search Bridge
+                const input = doc.querySelector('input[aria-label="Buscar Jugador"]');
                 if (input) {
                     input.addEventListener('keyup', () => {
                         const filter = input.value;
-                        // Find our specific table iframe (usually the last rendered or biggest)
                         const iframes = doc.querySelectorAll('iframe');
                         iframes.forEach(iframe => {
                             try {
                                 if (iframe.contentWindow && iframe.contentWindow.applyFilter) {
                                     iframe.contentWindow.applyFilter(filter);
                                 }
-                            } catch(e) { } // Cross-origin errors for external iframes
+                            } catch(e) { } 
                         });
                     });
                 }
 
-                // Prevent accidental refresh/leave when data is loaded
+                // 2. Prevent accidental refresh/leave when data is loaded
                 window.parent.onbeforeunload = function(e) {
                     const msg = 'Estás seguro que deseas salir sin guardar los cambios?';
                     e = e || window.parent.event;
