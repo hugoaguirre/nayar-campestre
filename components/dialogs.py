@@ -53,11 +53,14 @@ def render_partner_selection_ui(f_name, f_last, f_cat, f_scat, current_partner="
 
 
 def apply_bidirectional_doubles_sync(p1_idx, f_dobles, f_partner_label, partner_map, p1_fullname, current_partner=""):
+    affected_indices = {p1_idx}
+    
     # Sweep 1: If P1 had an OLD partner that they are abandoning, clear P1's old partner's record
     if current_partner and str(current_partner).strip() != "" and (not f_dobles or f_partner_label == "Ninguna" or f_partner_label != current_partner):
         old_mask_p1 = (st.session_state.players_df["Pareja de dobles"] == p1_fullname)
         st.session_state.players_df.loc[old_mask_p1, "Pareja de dobles"] = ""
         st.session_state.players_df.loc[old_mask_p1, "Dobles"] = "No"
+        affected_indices.update(st.session_state.players_df[old_mask_p1].index.tolist())
         
     if f_dobles and f_partner_label != "Ninguna":
         p2_idx = partner_map[f_partner_label]
@@ -70,15 +73,18 @@ def apply_bidirectional_doubles_sync(p1_idx, f_dobles, f_partner_label, partner_
             old_mask_p2 = (st.session_state.players_df["Pareja de dobles"] == p2_fullname)
             st.session_state.players_df.loc[old_mask_p2, "Pareja de dobles"] = ""
             st.session_state.players_df.loc[old_mask_p2, "Dobles"] = "No"
-            
+            affected_indices.update(st.session_state.players_df[old_mask_p2].index.tolist())
         # Assign mutually explicitly
         st.session_state.players_df.loc[p1_idx, "Pareja de dobles"] = p2_fullname
         st.session_state.players_df.loc[p2_idx, "Pareja de dobles"] = p1_fullname
         st.session_state.players_df.loc[p2_idx, "Dobles"] = "Sí"
+        affected_indices.add(p2_idx)
     else:
         st.session_state.players_df.loc[p1_idx, "Pareja de dobles"] = ""
         if not f_dobles:
             st.session_state.players_df.loc[p1_idx, "Dobles"] = "No"
+            
+    return list(affected_indices)
 
 
 @st.dialog("EDITAR JUGADOR")
@@ -157,7 +163,14 @@ def show_edit_player_dialog(idx):
             st.session_state.players_df.loc[idx, "Dobles"] = "Sí" if f_dobles else "No"
             
             p1_fullname = f"{f_name} {f_last}".strip()
-            apply_bidirectional_doubles_sync(idx, f_dobles, f_partner_label, partner_map, p1_fullname, current_partner)
+            affected = apply_bidirectional_doubles_sync(idx, f_dobles, f_partner_label, partner_map, p1_fullname, current_partner)
+            
+            from utils.supabase_data import upsert_player_to_supabase, fetch_tournament_players
+            with st.spinner("Guardando en la nube..."):
+                for a_idx in affected:
+                    upsert_player_to_supabase(st.session_state.players_df.loc[a_idx].to_dict())
+                st.session_state.players_df = fetch_tournament_players()
+            
             st.rerun()
         else:
             st.error("Por favor llena todos los campos.")
@@ -235,7 +248,14 @@ def show_add_player_dialog():
             p1_fullname = f"{f_name} {f_last}".strip()
             
             # Invoke the unified sync engine to link partners
-            apply_bidirectional_doubles_sync(new_idx, f_dobles, f_partner_label, partner_map, p1_fullname, "")
+            affected = apply_bidirectional_doubles_sync(new_idx, f_dobles, f_partner_label, partner_map, p1_fullname, "")
+            
+            from utils.supabase_data import upsert_player_to_supabase, fetch_tournament_players
+            with st.spinner("Guardando en la nube..."):
+                for a_idx in affected:
+                    upsert_player_to_supabase(st.session_state.players_df.loc[a_idx].to_dict())
+                st.session_state.players_df = fetch_tournament_players()
+            
             st.rerun()
         else:
             st.error("Por favor llena todos los campos.")

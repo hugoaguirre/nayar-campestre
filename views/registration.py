@@ -11,131 +11,27 @@ def render_registration_view():
     
     with col_reg_left:
         st.subheader("Acciones Rápidas")
+        
+        if st.button("SINCRONIZAR CON BASE DE DATOS", type="primary", use_container_width=True):
+            with st.spinner("Actualizando datos desde la nube..."):
+                from utils.supabase_data import fetch_tournament_players
+                st.session_state.players_df = fetch_tournament_players()
+            st.rerun()
+
         if st.button("AÑADIR NUEVO JUGADOR", use_container_width=True):
             show_add_player_dialog()
-        
-        # CSV Uploader Logic disguised as a button
-        uploaded_file = st.file_uploader("IMPORTAR JUGADORES (CSV)", type=["csv"], label_visibility="collapsed")
-        
-        is_uploaded = uploaded_file is not None
-        
-        # Unconditionally disguise the file_uploader as a button, but gray it out if a file is already uploaded.
-        css_state = f"""
-        <style>
-        .block-container [data-testid="stFileUploader"] {{
-            margin-bottom: -15px !important;
-            margin-top: 0px !important;
-            pointer-events: {'none' if is_uploaded else 'auto'} !important;
-        }}
-        .block-container [data-testid="stFileUploader"] label,
-        .block-container [data-testid="stFileUploader"] section + div {{
-            display: none !important;
-        }}
-        .block-container [data-testid="stFileUploader"] section {{
-            background-color: {'rgba(255, 255, 255, 0.1)' if is_uploaded else '#450084'} !important;
-            font-family: 'Montserrat', sans-serif !important;
-            color: {'rgba(255, 255, 255, 0.3)' if is_uploaded else '#ffffff'} !important; 
-            border: 2px solid {'rgba(255, 255, 255, 0.2)' if is_uploaded else '#ffffff'} !important;
-            border-radius: 4px !important; 
-            padding: 0 !important;
-            width: 100%;
-            height: 48px !important;
-            min-height: 48px !important;
-            max-height: 48px !important;
-            box-sizing: border-box !important;
-            cursor: {'not-allowed' if is_uploaded else 'pointer'};
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            position: relative;
-        }}
-        {'' if is_uploaded else '''
-        .block-container [data-testid="stFileUploader"] section:hover {
-            background-color: #ffffff !important;
-            color: #450084 !important;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-        }
-        .block-container [data-testid="stFileUploader"] section:hover::before {
-            color: #450084 !important;
-        }
-        '''}
-        .block-container [data-testid="stFileUploader"] section > div,
-        .block-container [data-testid="stFileUploader"] button {{
-            display: none !important;
-        }}
-        .block-container [data-testid="stFileUploader"] section::before {{
-            content: "{'JUGADORES IMPORTADOS' if is_uploaded else 'IMPORTAR DESDE EXCEL'}";
-            font-family: 'Montserrat', sans-serif;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-size: 0.85rem;
-            position: absolute;
-            pointer-events: none;
-            color: {'rgba(255, 255, 255, 0.4)' if is_uploaded else 'inherit'} !important;
-        }}
-        </style>
-        """
-        st.markdown(css_state, unsafe_allow_html=True)
-        
-        # Preemptively enforce exactly the new column order Requested by user before ANY display/export outputs 
-        desired_cols = ["Nombre", "Apellido", "Subcategoría", "Categoría", "Pago", "Celular", "Singles", "Dobles", "Pareja de dobles"]
-        for c in desired_cols:
-             if c not in st.session_state.players_df.columns:
-                 if c == "Singles":
-                     st.session_state.players_df[c] = "Sí"
-                 elif c == "Dobles":
-                     st.session_state.players_df[c] = "No"
-                 else:
-                     st.session_state.players_df[c] = ""
-        st.session_state.players_df = st.session_state.players_df[desired_cols]
-
-        csv_data = st.session_state.players_df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="GUARDAR JUGADORES",
-            data=csv_data,
-            file_name="jugadores_torneo.csv",
-            mime="text/csv",
-            type="primary",
-            use_container_width=True
-        )
-        
-
-        
+            
     with col_reg_right:
-        # Integration logic for uploaded csv
-        if "processed_csv_files" not in st.session_state:
-            st.session_state.processed_csv_files = []
-            
-        if uploaded_file is not None and uploaded_file.name not in st.session_state.processed_csv_files:
-            df_uploaded = pd.read_csv(uploaded_file)
-            
-            if "Singles" not in df_uploaded.columns:
-                df_uploaded["Singles"] = "Sí"
-            else:
-                df_uploaded["Singles"] = df_uploaded["Singles"].fillna("Sí")
-                
-            if "Dobles" not in df_uploaded.columns:
-                df_uploaded["Dobles"] = "No"
-            else:
-                df_uploaded["Dobles"] = df_uploaded["Dobles"].fillna("No")
-                
-            if "Pareja de dobles" not in df_uploaded.columns:
-                df_uploaded["Pareja de dobles"] = ""
-            else:
-                df_uploaded["Pareja de dobles"] = df_uploaded["Pareja de dobles"].fillna("")
-                    
-            st.session_state.players_df = pd.concat([st.session_state.players_df, df_uploaded], ignore_index=True)
-            st.session_state.processed_csv_files.append(uploaded_file.name)
-            st.rerun() # Refresh the page immediately so the top metric cards recalculate
-            
+        # Initial Auto-Fetch from Supabase if empty
+        if st.session_state.players_df.empty:
+            from utils.supabase_data import fetch_tournament_players
+            st.session_state.players_df = fetch_tournament_players()
+        
         display_df = st.session_state.players_df.copy()
             
         if display_df.empty:
             st.subheader(" ")
-            st.warning("Para empezar, importa un archivo de Excel con la información de los jugadores que participarán en el torneo", icon="🎾")
+            st.warning("Usa el botón de Añadir Nuevo Jugador para comenzar o sincroniza base de datos.", icon="🎾")
         else:
             st.markdown(f"### LISTA DE JUGADORES ({len(display_df)})")
     
@@ -188,7 +84,8 @@ def render_registration_view():
                     )
     
                 # 1. Convert DF to HTML
-                table_html = df_html.to_html(classes="luxury-wimbledon-table", index=False, escape=False)
+                display_cols = [c for c in df_html.columns if c not in ["ID_Jugador", "ID_Registro"]]
+                table_html = df_html[display_cols].to_html(classes="luxury-wimbledon-table", index=False, escape=False)
                 
                 # 2. Extract the CSS from what we used to have globally
                 custom_css = """
