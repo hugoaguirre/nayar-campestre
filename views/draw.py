@@ -18,12 +18,32 @@ def render_draw_view():
     st.markdown("---")
     
     # 2. Filter Players
-    if "players_df" not in st.session_state or st.session_state.players_df.empty:
-        st.warning("No hay jugadores registrados aún. Ve al tab de REGISTRO.")
-        return
-        
-    df = st.session_state.players_df.copy()
+    df = st.session_state.get('players_df', pd.DataFrame()).copy()
     
+    # --- NEW: AUTO-RESTORE PERSISTENCE ---
+    t_id = st.session_state.tournament_data.get('id')
+    is_finalized = st.session_state.tournament_data.get('is_finalized', False)
+    
+    # Initialize session state for the current draw if needed
+    if "current_draw" not in st.session_state:
+        st.session_state.current_draw = None
+
+    # Check if we need to fetch from Supabase (on filter change or initial load)
+    current_f = {"cat": cat_select, "scat": scat_select, "fmt": format_select}
+    last_f = st.session_state.current_draw.get("filters") if st.session_state.current_draw else None
+    
+    if current_f != last_f:
+        from utils.supabase_data import fetch_saved_draw
+        saved_groups = fetch_saved_draw(t_id, cat_select, scat_select, format_select)
+        if saved_groups:
+            st.session_state.current_draw = {
+                "filters": current_f,
+                "groups": saved_groups,
+                "is_dirty": False # Track if current draw differs from database
+            }
+        else:
+            st.session_state.current_draw = None
+
     mask = (df["Categoría"] == cat_select) & (df["Subcategoría"] == scat_select)
     if format_select == "Singles":
         mask = mask & (df["Singles"] == "Sí")
@@ -63,7 +83,7 @@ def render_draw_view():
     total_players = len(eligible_df)
     
     if total_players == 0:
-        st.info("No hay jugadores que cumplan con estos filtros.")
+        st.info(f"No hay jugadores registrados en {cat_select} - {scat_select} ({format_select}).")
         return
         
     # 4. Setup Groups
@@ -74,7 +94,7 @@ def render_draw_view():
         st.info(f"{lbl_text} {total_players}")
     with c5:
         default_groups = max(1, total_players // 3)
-        num_groups = st.number_input("Cantidad de Grupos (M)", min_value=1, max_value=total_players, value=default_groups)
+        num_groups = st.number_input("Cantidad de Grupos (M)", min_value=1, max_value=total_players, value=default_groups, disabled=is_finalized)
     
     # 4. Manual Seeding Table
     st.markdown("### Selección de Cabezas de Serie (Seeds)")
@@ -111,7 +131,7 @@ def render_draw_view():
     edited_df = st.data_editor(
         editable_df,
         column_config=col_cfg,
-        disabled=dis_cols,
+        disabled=dis_cols if not is_finalized else editable_df.columns,
         hide_index=True,
         use_container_width=True,
         key=editor_key
@@ -129,36 +149,51 @@ def render_draw_view():
         
     st.markdown("<br>", unsafe_allow_html=True)
     # 5. GENERATE DRAW
-    if st.button("SORTEAR Y CREAR GRUPOS", type="primary", use_container_width=True, disabled=not valid_seeds):
-        seeds_df = eligible_df.loc[selected_indices]
-        unseeded_df = eligible_df.drop(selected_indices)
-        
-        seeds_list = seeds_df.to_dict('records')
-        unseeded_list = unseeded_df.to_dict('records')
-        random.shuffle(unseeded_list)
-        
-        groups = {f"Grupo {i+1}": [] for i in range(num_groups)}
-        
-        # Place seeds first
-        for i, seed in enumerate(seeds_list):
-            groups[f"Grupo {i+1}"].append({**seed, "is_seed": True})
+    btn_col1, btn_col2 = st.columns(2)
+    with btn_col1:
+        if st.button("🎲 SORTEAR Y CREAR GRUPOS (DRAFT)", use_container_width=True, disabled=not valid_seeds or is_finalized):
+            seeds_df = eligible_df.loc[selected_indices]
+            unseeded_df = eligible_df.drop(selected_indices)
             
-        # Distribute unseeded round-robin balancing sizes
-        for p in unseeded_list:
-            min_size = min(len(g) for g in groups.values())
-            target_group = next(k for k, v in groups.items() if len(v) == min_size)
-            groups[target_group].append({**p, "is_seed": False})
+            seeds_list = seeds_df.to_dict('records')
+            unseeded_list = unseeded_df.to_dict('records')
+            random.shuffle(unseeded_list)
             
-        st.session_state.current_draw = {
-            "filters": {"cat": cat_select, "scat": scat_select, "fmt": format_select},
-            "groups": groups
-        }
-        st.rerun()
+            groups = {f"Grupo {i+1}": [] for i in range(num_groups)}
+            
+            # Place seeds first
+            for i, seed in enumerate(seeds_list):
+                groups[f"Grupo {i+1}"].append({**seed, "is_seed": True})
+                
+            # Distribute unseeded round-robin balancing sizes
+            for p in unseeded_list:
+                min_size = min(len(g) for g in groups.values())
+                target_group = next(k for k, v in groups.items() if len(v) == min_size)
+                groups[target_group].append({**p, "is_seed": False})
+                
+            st.session_state.current_draw = {
+                "filters": {"cat": cat_select, "scat": scat_select, "fmt": format_select},
+                "groups": groups,
+                "is_dirty": True
+            }
+            st.rerun()
+
+    with btn_col2:
+        can_save = st.session_state.current_draw.get("is_dirty") if st.session_state.current_draw else False
+        if st.button("💾 GUARDAR PROGRESO", type="primary", use_container_width=True, disabled=not can_save or is_finalized):
+            from utils.supabase_data import save_tournament_draw
+            draw_data = st.session_state.current_draw
+            if save_tournament_draw(t_id, cat_select, scat_select, format_select, draw_data["groups"]):
+                st.session_state.current_draw["is_dirty"] = False
+                st.toast("Progreso guardado correctamente. 🎾")
+                st.rerun()
+            else:
+                st.error("Error al guardar el draw en Supabase.")
         
     st.markdown("<br><br>", unsafe_allow_html=True)
     
     # 6. VISTA PREVIA (Accordion)
-    has_draw = "current_draw" in st.session_state
+    has_draw = st.session_state.current_draw is not None
     
     with st.expander("VISTA PREVIA DE GRUPOS", expanded=has_draw):
         if not has_draw:
@@ -169,7 +204,10 @@ def render_draw_view():
             f_scat = draw_data["filters"]["scat"]
             f_fmt = draw_data["filters"]["fmt"]
             
-            st.markdown(f"#### Resultados: {f_cat} - {f_scat} ({f_fmt})")
+            is_dirty = draw_data.get("is_dirty")
+            status_tag = " (Borrador sin guardar)" if is_dirty else " (Guardado)"
+            
+            st.markdown(f"#### Resultados: {f_cat} - {f_scat} ({f_fmt}) <small style='opacity:0.5;'>{status_tag}</small>", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             
             # Use responsive columns to display groups side-by-side if there are multiple

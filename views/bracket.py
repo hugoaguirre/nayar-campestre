@@ -111,7 +111,7 @@ def render_bracket_view(t_name):
     st.subheader("Llaves del Torneo")
     st.markdown("---")
     
-    if "current_draw" not in st.session_state:
+    if "current_draw" not in st.session_state or st.session_state.current_draw is None:
         st.info("Aún no has generado ningún Draw. Ve a la sección **02 GENERAR DRAW** primero.")
         return
         

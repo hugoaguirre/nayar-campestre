@@ -46,6 +46,23 @@ def apply_wimbledon_ui():
             padding-bottom: 2rem !important;
         }
 
+        /* Global Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #450084;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #CCFF00;
+        }
+
         /* 2. Headers & Titles */
         h1, h2, h3, .hero-title {
             font-family: 'Montserrat', sans-serif;
