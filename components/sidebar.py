@@ -9,8 +9,8 @@ def render_sidebar():
             st.rerun()
 
         st.markdown("### CONFIGURACIÓN")
-        # Default to the active tournament name
         current_name = st.session_state.tournament_data.get('name', "KIA OPEN 2026")
+        current_courts = st.session_state.tournament_data.get('num_courts', 6)
         is_finalized = st.session_state.tournament_data.get('is_finalized', False)
         
         def on_name_change():
@@ -26,8 +26,23 @@ def render_sidebar():
                         st.toast("Nombre actualizado exitosamente 💾")
                     except Exception as e:
                         pass
+        
+        def on_courts_change():
+            new_val = st.session_state.sidebar_tournament_courts
+            if new_val and new_val != current_courts:
+                from utils.supabase_client import get_supabase_client
+                supabase = get_supabase_client()
+                t_id = st.session_state.tournament_data.get('id')
+                if t_id:
+                    try:
+                        supabase.table('tournaments').update({'num_courts': new_val}).eq('id', t_id).execute()
+                        st.session_state.tournament_data['num_courts'] = new_val
+                        st.toast("Canchas actualizadas exitosamente 💾")
+                    except Exception as e:
+                        pass
                         
         t_name = st.text_input("Nombre en Pantalla", current_name, disabled=is_finalized, key="sidebar_tournament_name", on_change=on_name_change)
+        t_courts = st.number_input("Canchas Físicas", min_value=1, max_value=20, value=current_courts, disabled=is_finalized, key="sidebar_tournament_courts", on_change=on_courts_change)
         
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🗓️ MODIFICAR FECHAS", use_container_width=True, disabled=is_finalized):

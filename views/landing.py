@@ -54,7 +54,7 @@ def render_landing_view():
                         status_color = "#CCFF00" if status in ['open', 'active'] else "#ffffff"
                         
                         with st.container():
-                            c1, c2, c3 = st.columns([4, 2, 1])
+                            c1, c2, c3, c4 = st.columns([4, 2, 1, 0.4])
                             with c1:
                                 st.markdown(f"#### {t['name']}")
                                 st.markdown(f"<small style='opacity:0.6;'>{t.get('start_date', 'S/F')} — {t.get('end_date', 'S/F')}</small>", unsafe_allow_html=True)
@@ -67,6 +67,10 @@ def render_landing_view():
                                     # Reset player data to force a fresh fetch for the new tournament
                                     st.session_state.players_df = pd.DataFrame()
                                     st.rerun()
+                            with c4:
+                                if st.button("🗑️", key=f"delete_{t['id']}", help="Eliminar Torneo de la BD", use_container_width=True):
+                                    from components.dialogs import show_delete_tournament_dialog
+                                    show_delete_tournament_dialog(t['id'], t['name'])
                             st.divider()
 
         with tab_create:
@@ -76,8 +80,12 @@ def render_landing_view():
             with st.container():
                 st.markdown("### CONFIGURACIÓN DEL TORNEO")
                 
-                # 1. Tournament Name
-                t_name = st.text_input("Nombre del Torneo", placeholder="Ej: Copa Presidentes 2026", key="new_t_name")
+                # 1. Tournament Name & Courts
+                c_name, c_courts = st.columns([3, 1])
+                with c_name:
+                    t_name = st.text_input("Nombre del Torneo", placeholder="Ej: Copa Presidentes 2026", key="new_t_name")
+                with c_courts:
+                    t_courts = st.number_input("Canchas", min_value=1, max_value=20, value=6, help="Capacidad física de canchas a utilizar para el torneo.")
                 
                 # 2. Dates
                 d1, d2 = st.columns(2)
@@ -104,7 +112,7 @@ def render_landing_view():
                         st.error("Debes seleccionar al menos una categoría y una subcategoría.")
                     else:
                         with st.spinner("Preparando sistema..."):
-                            new_t = TournamentService.create_tournament(t_name, start_date, end_date, selected_cats, selected_subcats)
+                            new_t = TournamentService.create_tournament(t_name, start_date, end_date, t_courts, selected_cats, selected_subcats)
                             if new_t:
                                 st.session_state.tournament_active = True
                                 st.session_state.tournament_data = new_t

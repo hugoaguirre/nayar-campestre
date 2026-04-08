@@ -15,9 +15,9 @@ class SchedulingService:
         try:
             supabase = get_supabase_client()
 
-            # 1. Wipe all existing 'Grupos' matches for this tournament to prevent historical accumulation
-            supabase.table("matches").delete().eq("tournament_id", tournament_id).eq(
-                "stage", "Grupos"
+            # 1. Wipe all existing matches for this tournament to prevent historical accumulation
+            supabase.table("matches").delete().eq("tournament_id", tournament_id).in_(
+                "stage", ["Grupos", "Eliminatoria"]
             ).execute()
 
             # Fetch all saved draws for the tournament
@@ -42,11 +42,6 @@ class SchedulingService:
                     pairings = list(itertools.combinations(players, 2))
 
                     for p1, p2 in pairings:
-                        # Extract IDs
-                        # In the draw_json, we only saved 'Nombre', 'Apellido', 'Pago'.
-                        # Wait! draw.py line 155 does `eligible_df.loc[...].to_dict('records')`.
-                        # 'ID_Jugador' is inside eligible_df!
-
                         team_a_p1 = p1.get("ID_Jugador")
                         team_a_p2 = p1.get("ID_Pareja") if fmt == "Dobles" else None
                         team_b_p1 = p2.get("ID_Jugador")
@@ -91,6 +86,22 @@ class SchedulingService:
                                 "status": "Scheduled",
                             }
                             supabase.table("matches").insert(payload).execute()
+                            
+                # 2. Knockout Placeholder Engine
+                num_groups = len(groups)
+                num_playoffs = num_groups - 1
+                
+                if num_playoffs > 0:
+                    for _ in range(num_playoffs):
+                        playoff_payload = {
+                            "tournament_id": tournament_id,
+                            "category_id": cat_id,
+                            "subcategory_id": scat_id,
+                            "match_type": fmt,
+                            "stage": "Eliminatoria",
+                            "status": "Scheduled",
+                        }
+                        supabase.table("matches").insert(playoff_payload).execute()
 
             return True
         except Exception as e:
@@ -161,8 +172,7 @@ class SchedulingService:
     ):
         """
         The Master Engine: Assigns un-scheduled matches to active courts
-        using a Multi-Pass Greedy Engine with Relaxing Constraints.
-        Configurable for flash tournaments via num_courts limit.
+        using a Scoring Engine with Penalty logic to balance days.
         """
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
@@ -201,18 +211,29 @@ class SchedulingService:
             while curr_day <= end_date:
                 weekday = curr_day.weekday()
                 if 1 <= weekday <= 4:
+                    # Tuesday to Friday
                     hours = [16, 17, 19, 20]
                     mins = [0, 30, 0, 30]
-                elif weekday >= 5:
-                    hours = [9, 10, 12, 13, 15, 16, 18]
-                    mins = [0, 30, 0, 30, 0, 30, 0]
+                    for i in range(len(hours)):
+                        slot_time = curr_day.replace(hour=hours[i], minute=mins[i])
+                        slots.append({"time": slot_time, "is_prime": (hours[i] >= 19)})
+                elif weekday == 5:
+                    # Saturday: 9:00 AM to 8:30 PM (20:30)
+                    hours = [9, 10, 12, 13, 16, 17, 19, 20]
+                    mins = [0, 30, 0, 30, 0, 30, 0, 30] # 20:30 is the last match
+                    for i in range(len(hours)):
+                        slot_time = curr_day.replace(hour=hours[i], minute=mins[i])
+                        slots.append({"time": slot_time, "is_prime": True})
+                elif weekday == 6:
+                    # Sunday: 9:00 AM to 7:00 PM (19:00)
+                    hours = [9, 10, 12, 13, 16, 17, 19]
+                    mins = [0, 30, 0, 30, 0, 30, 0] # 19:00 is the last match
+                    for i in range(len(hours)):
+                        slot_time = curr_day.replace(hour=hours[i], minute=mins[i])
+                        slots.append({"time": slot_time, "is_prime": True})
                 else:
-                    curr_day += timedelta(days=1)
-                    continue
-
-                for i in range(len(hours)):
-                    slot_time = curr_day.replace(hour=hours[i], minute=mins[i])
-                    slots.append({"time": slot_time, "is_prime": (hours[i] >= 19)})
+                    # Monday (closed)
+                    pass
 
                 curr_day += timedelta(days=1)
 
@@ -228,6 +249,7 @@ class SchedulingService:
 
             book_map = set()  # "courtId_isoTime" -> Taken
             scheduled_matrix = {}  # "player_id" -> [datetime, datetime]
+            day_usage = {} # "YYYY-MM-DD" -> count of matches
 
             if booked_resp.data:
                 for b in booked_resp.data:
@@ -235,6 +257,9 @@ class SchedulingService:
                         b["scheduled_time"].replace("Z", "+00:00")
                     ).replace(tzinfo=None)
                     book_map.add(f"{b['court_id']}_{dt.isoformat()}")
+
+                    date_str = dt.strftime("%Y-%m-%d")
+                    day_usage[date_str] = day_usage.get(date_str, 0) + 1
 
                     for pk in [
                         "player1_id",
@@ -249,89 +274,113 @@ class SchedulingService:
 
             queue = unscheduled.data
             prime_targets = ["AA", "A", "B+"]
+
+            # Sort queue: Prime matches first
+            def match_sort_key(m):
+                sc_name = m.get("subcategories", {}).get("name", "")
+                return 0 if sc_name in prime_targets else 1
+
+            queue.sort(key=match_sort_key)
+
             updates = []
-
-            # --- MULTI-PASS ALGORITHM ---
-            # Pass 1: Strict (Requires PASS)
-            # Pass 2: Relaxed (Allows FAIL_CONSECUTIVE)
-            # Pass 3: Desperate (Allows FAIL_SAME_DAY)
-
-            for pass_num in [1, 2, 3]:
+            failed_count = 0
+            
+            for match in queue:
+                best_slot = None
+                best_court = None
+                best_score = float('inf')
+                
+                sc_name = match.get("subcategories", {}).get("name", "")
+                is_prime_match = sc_name in prime_targets
+                
                 for slot in slots:
-                    if len(queue) == 0:
-                        break
-
                     dt_val = slot["time"]
                     dt_iso = dt_val.isoformat()
-                    is_prime = slot["is_prime"]
-
+                    is_prime_slot = slot["is_prime"]
+                    
+                    # Check if there's an available court for this slot
+                    available_courts = []
                     for c_id in courts:
-                        if len(queue) == 0:
-                            break
+                        if f"{c_id}_{dt_iso}" not in book_map:
+                            available_courts.append(c_id)
+                            
+                    if not available_courts:
+                        continue # Fully booked
+                        
+                    constraint_result = SchedulingService.check_match_constraints(
+                        match, dt_val, scheduled_matrix
+                    )
+                    
+                    if constraint_result == "FAIL_SAME_TIME":
+                        continue
 
-                        key = f"{c_id}_{dt_iso}"
-                        if key in book_map:
-                            continue
+                    penalty = 0
+                    
+                    # 1. Constraint Penalty
+                    if constraint_result == "FAIL_SAME_DAY":
+                        penalty += 5000
+                    elif constraint_result == "FAIL_CONSECUTIVE":
+                        penalty += 1000
+                        
+                    # 2. Day Load Balancing (Spread matches across empty days)
+                    date_str = dt_val.strftime("%Y-%m-%d")
+                    curr_day_usage = day_usage.get(date_str, 0)
+                    penalty += curr_day_usage * 50
+                    
+                    # 3. Eliminatoria End-Date Bias
+                    if match.get("stage") == "Eliminatoria":
+                        days_from_end = (end_date.date() - dt_val.date()).days
+                        # Heavily penalize scheduling playoff games early
+                        penalty += days_from_end * 20000
+                    
+                    # 3. Prime Alignment
+                    if is_prime_match:
+                        if not is_prime_slot:
+                            # Not a prime slot (weekday early slot).
+                            penalty += 100
+                            # The later the better: penalize early hours.
+                            penalty += (24 - dt_val.hour) * 2
+                    else:
+                        if is_prime_slot and dt_val.weekday() < 5:
+                            # Regular match taking a weekday prime slot.
+                            penalty += 100
+                            # The earlier the better: penalize late hours.
+                            penalty += dt_val.hour * 2
 
-                        chosen_idx = -1
+                    if penalty < best_score:
+                        best_score = penalty
+                        best_slot = slot
+                        best_court = available_courts[0]
 
-                        for i, match in enumerate(queue):
-                            # Analyze constraints
-                            constraint_result = (
-                                SchedulingService.check_match_constraints(
-                                    match, dt_val, scheduled_matrix
-                                )
-                            )
-
-                            is_valid = False
-                            if pass_num == 1 and constraint_result == "PASS":
-                                is_valid = True
-                            elif pass_num == 2 and constraint_result in [
-                                "PASS",
-                                "FAIL_CONSECUTIVE",
-                            ]:
-                                is_valid = True
-                            elif pass_num == 3 and constraint_result in [
-                                "PASS",
-                                "FAIL_CONSECUTIVE",
-                                "FAIL_SAME_DAY",
-                            ]:
-                                is_valid = True
-
-                            if is_valid:
-                                # Check prime rules
-                                sc_name = match.get("subcategories", {}).get("name", "")
-                                if is_prime and sc_name in prime_targets:
-                                    chosen_idx = i
-                                    break  # Perfect match found!
-                                elif not is_prime:
-                                    chosen_idx = i
-                                    break  # Good enough!
-
-                        if chosen_idx != -1:
-                            best_match = queue.pop(chosen_idx)
-                            updates.append(
-                                {
-                                    "id": best_match["id"],
-                                    "court_id": c_id,
-                                    "scheduled_time": dt_iso,
-                                    "status": "Scheduled",
-                                }
-                            )
-                            book_map.add(key)
-
-                            # Book players into the matrix
-                            for pk in [
-                                "player1_id",
-                                "player2_id",
-                                "team1_partner_id",
-                                "team2_partner_id",
-                            ]:
-                                pid = best_match.get(pk)
-                                if pid:
-                                    if pid not in scheduled_matrix:
-                                        scheduled_matrix[pid] = []
-                                    scheduled_matrix[pid].append(dt_val)
+                if best_slot and best_court:
+                    dt_val = best_slot["time"]
+                    dt_iso = best_slot["time"].isoformat()
+                    
+                    updates.append({
+                        "id": match["id"],
+                        "court_id": best_court,
+                        "scheduled_time": dt_iso,
+                        "status": "Scheduled",
+                    })
+                    
+                    book_map.add(f"{best_court}_{dt_iso}")
+                    
+                    date_str = dt_val.strftime("%Y-%m-%d")
+                    day_usage[date_str] = day_usage.get(date_str, 0) + 1
+                    
+                    for pk in [
+                        "player1_id",
+                        "player2_id",
+                        "team1_partner_id",
+                        "team2_partner_id",
+                    ]:
+                        pid = match.get(pk)
+                        if pid:
+                            if pid not in scheduled_matrix:
+                                scheduled_matrix[pid] = []
+                            scheduled_matrix[pid].append(dt_val)
+                else:
+                    failed_count += 1
 
             # Push all to DB
             for u in updates:
@@ -343,10 +392,10 @@ class SchedulingService:
                     }
                 ).eq("id", u["id"]).execute()
 
-            return True
+            return {"success": True, "failed": failed_count}
         except Exception as e:
             print(f"Auto-schedule Error: {e}")
-            return False
+            return {"success": False, "failed": 0}
 
     @staticmethod
     def wipe_schedules(tournament_id):

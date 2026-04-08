@@ -521,3 +521,26 @@ def show_edit_dates_dialog():
                 
                 st.success("Fechas actualizadas exitosamente.")
                 st.rerun()
+
+@st.dialog("ELIMINAR TORNEO DE LA BASE DE DATOS")
+def show_delete_tournament_dialog(tournament_id, tournament_name):
+    st.markdown(f"### 🚨 PELIGRO: ESTAS A PUNTO DE BORRAR **{tournament_name}**")
+    st.error("⚠️ **ADVERTENCIA CRÍTICA**: \nEsta acción **NO SE PUEDE DESHACER**.\n\nEliminar este torneo destruirá permanentemente toda su información asociada, lo cual incluye:\n- Todas las inscripciones de jugadores.\n- Las parejas de dobles formadas en este torneo.\n- Todos los calendarios, partidos horarios y canchas asignadas.\n- Los grupos y llaves (Draws).")
+    
+    confirm_text = st.text_input(f"Escribe el nombre del torneo para confirmar", placeholder=f"Escribe: {tournament_name}")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("CANCELAR", use_container_width=True):
+            st.rerun()
+    with c2:
+        is_disabled = confirm_text != tournament_name
+        if st.button("🗑️ ELIMINAR PERMANENTEMENTE", type="primary", use_container_width=True, disabled=is_disabled):
+            from services.tournament_service import TournamentService
+            with st.spinner("Aniquilando torneo en Supabase..."):
+                if TournamentService.delete_tournament(tournament_id):
+                    st.success("Torneo eliminado.")
+                    st.rerun()
+                else:
+                    st.error("Error crítico intentando borrar el torneo.")

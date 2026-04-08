@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS tournaments (
     name TEXT NOT NULL UNIQUE,
     start_date DATE,
     end_date DATE,
+    num_courts INTEGER DEFAULT 6,
     status TEXT DEFAULT 'active', -- 'active', 'closed', 'draft'
     is_finalized BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT NOW()

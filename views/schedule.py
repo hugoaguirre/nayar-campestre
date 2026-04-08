@@ -34,13 +34,10 @@ def render_schedule_view():
         st.info(
             "El Motor de Programación utilizará estas fechas, omitiendo los lunes y reservando las noches (19:00 - 20:30) para las categorías AA, A y B+"
         )
-        num_courts = st.number_input(
-            "Canchas a utilizar",
-            min_value=1,
-            max_value=6,
-            value=6,
-            help="Disminuye este límite para Torneos Relámpago que no pueden usar el club entero.",
-        )
+        
+        # Read the strict global court constraint natively from the database config
+        num_courts = st.session_state.tournament_data.get('num_courts', 6)
+        st.markdown(f"**Canchas Habilitadas Configuración Global:** {num_courts}")
 
     with c2:
         if st.button(
@@ -63,9 +60,16 @@ def render_schedule_view():
             disabled=is_finalized,
         ):
             with st.spinner("Asignando Horarios..."):
-                if SchedulingService.auto_schedule_matches(
+                res = SchedulingService.auto_schedule_matches(
                     t_id, t_start, t_end, num_courts
-                ):
+                )
+                if isinstance(res, dict) and res.get("success"):
+                    if res.get("failed", 0) > 0:
+                        st.warning(f"¡Horarios asignados! Sin embargo, {res['failed']} partidos no pudieron ser programados porque las fechas/canchas resultaron insuficientes.")
+                    else:
+                        st.success("¡Horarios asignados automáticamente a todos los partidos!")
+                    st.rerun()
+                elif res is True:
                     st.success("¡Horarios asignados automáticamente!")
                     st.rerun()
                 else:

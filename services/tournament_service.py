@@ -22,7 +22,7 @@ class TournamentService:
             return []
 
     @staticmethod
-    def create_tournament(name, start_date, end_date, categories, subcategories):
+    def create_tournament(name, start_date, end_date, num_courts, categories, subcategories):
         """
         Creates a new tournament and sets its status to 'active'.
         Note: Currently categories/subcategories are stored in their own tables, 
@@ -36,6 +36,7 @@ class TournamentService:
                 "name": name,
                 "start_date": start_date.strftime('%Y-%m-%d') if start_date else None,
                 "end_date": end_date.strftime('%Y-%m-%d') if end_date else None,
+                "num_courts": num_courts,
                 "status": "active"
             }
             
@@ -46,6 +47,32 @@ class TournamentService:
         except Exception as e:
             st.error(f"Error creating tournament: {e}")
             return None
+
+    @staticmethod
+    def delete_tournament(tournament_id):
+        """
+        Explicitly cascades the deletion of a tournament, aggressively purging 
+        all dependent schedule matches, draws, and registrations first.
+        """
+        try:
+            supabase = get_supabase_client()
+            
+            # 1. Purge scheduled matches
+            supabase.table('matches').delete().eq('tournament_id', tournament_id).execute()
+            
+            # 2. Purge logic draws
+            supabase.table('tournament_draws').delete().eq('tournament_id', tournament_id).execute()
+            
+            # 3. Purge player registrations from this tournament
+            supabase.table('tournament_registrations').delete().eq('tournament_id', tournament_id).execute()
+            
+            # 4. Annihilate the core tournament
+            response = supabase.table('tournaments').delete().eq('id', tournament_id).execute()
+            
+            return True if response.data else False
+        except Exception as e:
+            st.error(f"Error deleting tournament: {e}")
+            return False
 
     @staticmethod
     def fetch_config_options():
