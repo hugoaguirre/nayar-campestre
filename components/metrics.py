@@ -31,9 +31,13 @@ def render_metrics():
         
         max_matches = calculate_max_capacity(t_start, t_end, t_courts)
         
-        # 4 Players = 6 RR matches + 1 Knockout match = 7 Matches total
-        # Ratio: 1.75 matches per registered participation
-        projected_matches = int(total_players * 1.75)
+        # Dynamic Modality Weights
+        s_count = len(_df[_df['Singles'].str.upper() == 'SÍ']) if 'Singles' in _df.columns else 0
+        d_count = len(_df[_df['Dobles'].str.upper() == 'SÍ']) if 'Dobles' in _df.columns else 0
+        
+        # A Singles tournament bracket organically costs ~1.5 physical slots per player.
+        # A Doubles tournament bracket costs ~1.5 physical slots total, which equals 0.75 slots per individual.
+        projected_matches = int((s_count * 1.5) + (d_count * 0.75))
         
         if max_matches > 0:
             percentage = min(100, int((projected_matches / max_matches) * 100))

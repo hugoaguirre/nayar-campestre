@@ -32,7 +32,9 @@ def render_schedule_view():
         """
         st.markdown(html_duracion, unsafe_allow_html=True)
         st.info(
-            "El Motor de Programación utilizará estas fechas, omitiendo los lunes y reservando las noches (19:00 - 20:30) para las categorías AA, A y B+"
+            "El Motor de Programación utilizará estas fechas, omitiendo los lunes. "
+            "Orden de prioridad: Mini-Tenis y 8-10 años primero (horarios tempranos), "
+            "luego D, C, B, y al final B+, A y AA (horarios prime-time 19:00+)."
         )
         
         # Read the strict global court constraint natively from the database config
@@ -64,10 +66,23 @@ def render_schedule_view():
                     t_id, t_start, t_end, num_courts
                 )
                 if isinstance(res, dict) and res.get("success"):
-                    if res.get("failed", 0) > 0:
-                        st.warning(f"¡Horarios asignados! Sin embargo, {res['failed']} partidos no pudieron ser programados porque las fechas/canchas resultaron insuficientes.")
+                    total = res.get("total_scheduled", 0)
+                    failed = res.get("failed", 0)
+                    overflow = res.get("overflow_count", 0)
+                    if failed > 0:
+                        st.warning(
+                            f"¡{total} partidos programados! Sin embargo, "
+                            f"{failed} partidos no pudieron ser colocados por "
+                            f"insuficiencia de fechas/canchas."
+                        )
                     else:
-                        st.success("¡Horarios asignados automáticamente a todos los partidos!")
+                        st.success(f"¡{total} partidos programados exitosamente!")
+                    if overflow > 0:
+                        st.info(
+                            f"⚡ {overflow} partidos necesitaron el pase de "
+                            f"emergencia (3 juegos/día por jugador) para caber "
+                            f"en el calendario."
+                        )
                     st.rerun()
                 elif res is True:
                     st.success("¡Horarios asignados automáticamente!")
@@ -105,8 +120,10 @@ def render_schedule_view():
         p2 = m.get("p2", {}) or {}
         p2_par = m.get("p2_par", {}) or {}
 
+        import re
         team_a = (
             f"{p1.get('first_name', '')} {p1.get('last_name', '')}".strip()
+            or re.sub(r'\[R\d+\] ', '', m.get("score_team_a") or "")
             or "Por definir"
         )
         if p1_par.get("first_name"):
@@ -114,6 +131,7 @@ def render_schedule_view():
 
         team_b = (
             f"{p2.get('first_name', '')} {p2.get('last_name', '')}".strip()
+            or re.sub(r'\[R\d+\] ', '', m.get("score_team_b") or "")
             or "Por definir"
         )
         if p2_par.get("first_name"):

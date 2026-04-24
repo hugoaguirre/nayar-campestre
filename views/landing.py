@@ -3,6 +3,7 @@ import pandas as pd
 from services.tournament_service import TournamentService
 from datetime import datetime, date
 
+
 def render_landing_view():
     """
     Renders the premium Wimbledon-themed landing page with a list of tournaments
@@ -12,14 +13,14 @@ def render_landing_view():
     st.markdown(
         """
         <div style="text-align: center; padding-top: 2rem; padding-bottom: 3rem;">
-            <h1 class="hero-title" style="font-size: 80px; margin-bottom: 0;">NAVYAR CLUB</h1>
-            <h3 style="color: #CCFF00; letter-spacing: 5px; font-weight: 400; font-family: 'Montserrat', sans-serif;">TENIS • GESTIÓN ESTRATÉGICA</h3>
+            <h1 class="hero-title" style="font-size: 80px; margin-bottom: 0;">NAYAR CLUB</h1>
+            <h3 style="color: #CCFF00; letter-spacing: 5px; font-weight: 400; font-family: 'Montserrat', sans-serif;">Organizador de torneos</h3>
             <div style="margin-top: 1.5rem;">
                 <p style="color: #ffffff; opacity: 0.6; font-size: 0.9rem;">DIRECTORIO DE SOCIOS Y TORNEOS</p>
             </div>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     # 1.1 Global Actions (Socio Creation)
@@ -27,21 +28,24 @@ def render_landing_view():
     with c_s2:
         if st.button("➕ AÑADIR NUEVO SOCIO", use_container_width=True):
             from components.dialogs import show_add_new_socio_dialog
+
             show_add_new_socio_dialog()
 
     # 2. Main Content Layout
     col_left, col_mid, col_right = st.columns([1, 4, 1])
-    
+
     with col_mid:
         # WRAPPER FOR TABS (Single Glossy Container)
         st.markdown('<div class="glass-card-anchor"></div>', unsafe_allow_html=True)
-        
+
         # TABS: LISTADO vs CREACIÓN
-        tab_list, tab_create = st.tabs(["🎾 TORNEOS ACTIVOS & HISTORIAL", "🏆 CREAR NUEVO TORNEO"])
-        
+        tab_list, tab_create = st.tabs(
+            ["🎾 TORNEOS ACTIVOS & HISTORIAL", "🏆 CREAR NUEVO TORNEO"]
+        )
+
         with tab_list:
             tournaments = TournamentService.get_all_tournaments()
-            
+
             if not tournaments:
                 st.warning("No hay torneos registrados. ¡Crea el primero!", icon="🎾")
             else:
@@ -49,70 +53,125 @@ def render_landing_view():
                 with st.container(height=600, border=False):
                     for t in tournaments:
                         # Determine Status Styling
-                        status = t.get('status', 'unknown').lower()
-                        status_text = "EN CURSO" if status in ['open', 'active'] else "FINALIZADO"
-                        status_color = "#CCFF00" if status in ['open', 'active'] else "#ffffff"
-                        
+                        status = t.get("status", "unknown").lower()
+                        status_text = (
+                            "EN CURSO" if status in ["open", "active"] else "FINALIZADO"
+                        )
+                        status_color = (
+                            "#CCFF00" if status in ["open", "active"] else "#ffffff"
+                        )
+
                         with st.container():
                             c1, c2, c3, c4 = st.columns([4, 2, 1, 0.4])
                             with c1:
                                 st.markdown(f"#### {t['name']}")
-                                st.markdown(f"<small style='opacity:0.6;'>{t.get('start_date', 'S/F')} — {t.get('end_date', 'S/F')}</small>", unsafe_allow_html=True)
+                                st.markdown(
+                                    f"<small style='opacity:0.6;'>{t.get('start_date', 'S/F')} — {t.get('end_date', 'S/F')}</small>",
+                                    unsafe_allow_html=True,
+                                )
                             with c2:
-                                st.markdown(f"<p style='color:{status_color}; font-weight:700; margin-top:10px;'>{status_text}</p>", unsafe_allow_html=True)
+                                st.markdown(
+                                    f"<p style='color:{status_color}; font-weight:700; margin-top:10px;'>{status_text}</p>",
+                                    unsafe_allow_html=True,
+                                )
                             with c3:
-                                if st.button("GESTIONAR", key=f"select_{t['id']}", use_container_width=True):
+                                if st.button(
+                                    "GESTIONAR",
+                                    key=f"select_{t['id']}",
+                                    use_container_width=True,
+                                ):
                                     st.session_state.tournament_active = True
                                     st.session_state.tournament_data = t
                                     # Reset player data to force a fresh fetch for the new tournament
                                     st.session_state.players_df = pd.DataFrame()
                                     st.rerun()
                             with c4:
-                                if st.button("🗑️", key=f"delete_{t['id']}", help="Eliminar Torneo de la BD", use_container_width=True):
-                                    from components.dialogs import show_delete_tournament_dialog
-                                    show_delete_tournament_dialog(t['id'], t['name'])
+                                if st.button(
+                                    "🗑️",
+                                    key=f"delete_{t['id']}",
+                                    help="Eliminar Torneo de la BD",
+                                    use_container_width=True,
+                                ):
+                                    from components.dialogs import (
+                                        show_delete_tournament_dialog,
+                                    )
+
+                                    show_delete_tournament_dialog(t["id"], t["name"])
                             st.divider()
 
         with tab_create:
             # Fetch dynamic options from Supabase
             all_cats, all_subcats = TournamentService.fetch_config_options()
-            
+
             with st.container():
                 st.markdown("### CONFIGURACIÓN DEL TORNEO")
-                
+
                 # 1. Tournament Name & Courts
                 c_name, c_courts = st.columns([3, 1])
                 with c_name:
-                    t_name = st.text_input("Nombre del Torneo", placeholder="Ej: Copa Presidentes 2026", key="new_t_name")
+                    t_name = st.text_input(
+                        "Nombre del Torneo",
+                        placeholder="Ej: Copa Presidentes 2026",
+                        key="new_t_name",
+                    )
                 with c_courts:
-                    t_courts = st.number_input("Canchas", min_value=1, max_value=20, value=6, help="Capacidad física de canchas a utilizar para el torneo.")
-                
+                    t_courts = st.number_input(
+                        "Canchas",
+                        min_value=1,
+                        max_value=20,
+                        value=6,
+                        help="Capacidad física de canchas a utilizar para el torneo.",
+                    )
+
                 # 2. Dates
                 d1, d2 = st.columns(2)
                 with d1:
                     start_date = st.date_input("Fecha Inicio", value=date.today())
                 with d2:
                     end_date = st.date_input("Fecha Fin", value=date.today())
-                
+
                 # 3. Categories Selection
                 st.markdown("#### Categorías")
-                selected_cats = st.pills("Categorías", all_cats, selection_mode="multi", default=all_cats, label_visibility="collapsed")
-                
+                selected_cats = st.pills(
+                    "Categorías",
+                    all_cats,
+                    selection_mode="multi",
+                    default=all_cats,
+                    label_visibility="collapsed",
+                )
+
                 # 4. Subcategories Selection
                 st.markdown("#### Subcategorías")
-                selected_subcats = st.pills("Subcategorías", all_subcats, selection_mode="multi", default=all_subcats, label_visibility="collapsed")
+                selected_subcats = st.pills(
+                    "Subcategorías",
+                    all_subcats,
+                    selection_mode="multi",
+                    default=all_subcats,
+                    label_visibility="collapsed",
+                )
 
                 st.markdown("<br>", unsafe_allow_html=True)
-                
+
                 # 5. Generate Button
-                if st.button("GENERAR TORNEO", type="primary", use_container_width=True):
+                if st.button(
+                    "GENERAR TORNEO", type="primary", use_container_width=True
+                ):
                     if not t_name:
                         st.error("Por favor, ingresa un nombre para el torneo.")
                     elif not selected_cats or not selected_subcats:
-                        st.error("Debes seleccionar al menos una categoría y una subcategoría.")
+                        st.error(
+                            "Debes seleccionar al menos una categoría y una subcategoría."
+                        )
                     else:
                         with st.spinner("Preparando sistema..."):
-                            new_t = TournamentService.create_tournament(t_name, start_date, end_date, t_courts, selected_cats, selected_subcats)
+                            new_t = TournamentService.create_tournament(
+                                t_name,
+                                start_date,
+                                end_date,
+                                t_courts,
+                                selected_cats,
+                                selected_subcats,
+                            )
                             if new_t:
                                 st.session_state.tournament_active = True
                                 st.session_state.tournament_data = new_t
@@ -131,5 +190,5 @@ def render_landing_view():
             </p>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )

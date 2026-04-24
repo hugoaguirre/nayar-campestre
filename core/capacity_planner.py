@@ -26,8 +26,8 @@ def calculate_max_capacity(start_date_str, end_date_str, num_courts=6):
             # Saturday (9, 10:30, 12, 13:30, 16, 17:30, 19, 20:30)
             total_slots += 8
         elif weekday == 6:
-            # Sunday (9, 10:30, 12, 13:30, 16, 17:30, 19)
-            total_slots += 7
+            # Sunday (9, 10:30, 12, 13:30, 15, 16:30, 18, 19:30)
+            total_slots += 8
             
         curr_day += timedelta(days=1)
         
