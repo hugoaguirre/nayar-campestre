@@ -1,21 +1,35 @@
-# 🎾 Club Nayar Campestre - Tournament Management System
+# 🎾 Tennis Tournament Management System
 
-A premium, bespoke tournament operations dashboard built specifically for **Club Nayar Campestre**. 
+A premium, tournament operations dashboard built specifically for **Tennis Tournaments** 
+
+## Tournament Dashboard preview
+<img width="1423" height="687" alt="image" src="https://github.com/user-attachments/assets/1e3f2bf2-17e7-47fe-9054-f6a8a4ff9203" />
+
+---
+<img width="1720" height="824" alt="image" src="https://github.com/user-attachments/assets/0109fdeb-4309-4fa7-ad5a-63ae1dae3369" />
+
+---
+<img width="1698" height="757" alt="image" src="https://github.com/user-attachments/assets/5b0b12ae-ab82-4ae6-8e73-8047e1778955" />
+
+---
+<img width="1698" height="878" alt="image" src="https://github.com/user-attachments/assets/3418cc09-598c-47c0-9fd4-5663f5dd442f" />
+
+---
 
 Designed strictly to the "Wimbledon Luxury" aesthetic standard, this architecture moves club operations away from chaotic spreadsheets and manual group formulations into a mathematically robust, cloud-synchronized PostgreSQL environment. 
 
 This platform eliminates scheduling bottlenecks, mitigates physical capacity failures, and actively manages complex registration logic in real-time.
 
-## 🚀 Key Features & Solved Problems
+## Tech stack
+- Python + Streamlit
+- Supabase (Postgres)
+- CSS and HTML for UI/UX customizations.
 
-- **Intelligent Club Capacity Planner**: Mathematically calculates the absolute physical maximum matches your club can field based on your exact tournament dates and physical court counts. It surfaces a real-time UI capacity metric that visually turns **RED (¡SOBRECUPO!)** when coaches accept more players than the temporal boundaries allow, permanently destroying the risk of overflowing your physical club.
-- **Advanced Constraint-Based Auto-Scheduler**: Eliminates random "best-effort" time slotting. The custom scheduling engine actively analyzes dates to:
-  - Spread games heavily across vacant days.
-  - Automatically enforce Prime-Time (19:00+) for Elite Categories (AA, A, B+).
-  - Actively detect and penalize heavy player fatigue (same-day back-to-back games).
-  - Isolate knock-out ("Eliminatoria") matches solely to the final days using gravitational penalties.
-- **Bidirectional Doubles Synchronization**: An intelligent partner-swapping engine that ensures if Player A abandons Player B, their entire database mapping safely unwinds the dependency immediately, preventing orphaned logic loops globally.
-- **Universal Knockout Calculus**: The architecture utilizes advanced $N-1$ algebra to automatically construct exactly how many single-elimination matches a given bracket needs, injecting structural placeholders globally without manually traversing logical branches.
-- **Capacity-Driven Synthetic Factory**: Built-in Python scripting (`scripts/generate_test_seeds.py`) that computationally spins up complete SQL testing arrays based on percentages (e.g., "Synthesize an 80% Capacity Tournament", "Synthesize a 150% Overflow Tournament"). Allowing robust Staging-Environment testing and instantaneous teardown.
+## Key Features
 
-*(More media/usage documentation coming soon...)*
+- Supports tournament creation for singles and doubles on several categories.
+- Calculates Club **capacity** based on number of players, courts available and tournament dates.
+- Autogenerates matches between group categories
+- Assigns match schedules based on club constraints
+- Club members and tournament data is stored in the cloud
+
