@@ -51,7 +51,12 @@ def generate_bracket_svg(players, tournament_name):
             
             p_name = str(wing_players[i])
             f_size = "13" if len(p_name) > 20 else "15"
-            color = "#80b398" if p_name == "BYE" else "#ffffff"
+            if p_name == "BYE":
+                color = "#80b398"
+            elif "Mejor 2do" in p_name:
+                color = "#CCFF00"  # Tennis Ball Yellow for qualifier slots
+            else:
+                color = "#ffffff"
             
             # Top slot of the match -> above line. Bottom slot -> below line.
             y_text = y - 8 if i % 2 == 0 else y + 18
@@ -143,9 +148,18 @@ def render_bracket_view(t_name):
     pow2 = get_next_power_of_2(total_groups)
     if pow2 < 4: pow2 = 4
     
-    # Pad unseeded with BYEs
-    while len(seeds) + len(unseeded) < pow2:
-        unseeded.append("BYE")
+    # Pad bracket to pow2. For 3+ groups, use qualifier placeholders
+    # instead of BYEs so every bracket slot is a real match.
+    num_qualifiers = pow2 - total_groups
+    if total_groups > 2 and num_qualifiers > 0:
+        if num_qualifiers == 1:
+            unseeded.append("Mejor 2do Lugar")
+        else:
+            for q in range(1, num_qualifiers + 1):
+                unseeded.append(f"Mejor 2do Lugar #{q}")
+    else:
+        while len(seeds) + len(unseeded) < pow2:
+            unseeded.append("BYE")
         
     # Official ATP/WTA Binary Sort Algorithm
     def generate_seed_tree(depth):

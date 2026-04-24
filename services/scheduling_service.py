@@ -72,6 +72,10 @@ _KO_NAMES_BY_OFFSET = {
     4: "Dieciseisavos de Final",
 }
 
+# All possible knockout stage names (includes legacy "Eliminatoria" for
+# backwards compatibility with matches already stored in the database).
+_KNOCKOUT_STAGES = set(_KO_NAMES_BY_OFFSET.values()) | {"Eliminatoria"}
+
 # Default daily match cap per player (normal pass). Overflow pass raises to 3.
 _DAILY_MATCH_CAP_NORMAL = 2
 _DAILY_MATCH_CAP_OVERFLOW = 3
@@ -114,7 +118,7 @@ def _extract_round(match: dict) -> int:
 
     # Fallback: if tags are absent but the match IS a knockout, infer from content.
     # "Ganador de Llave" references are only generated for R2+ rounds.
-    if round_val == 0 and match.get("stage") == "Eliminatoria":
+    if round_val == 0 and match.get("stage", "") in _KNOCKOUT_STAGES:
         has_llave_ref = "Ganador de Llave" in score_a or "Ganador de Llave" in score_b
         round_val = 2 if has_llave_ref else 1
 
@@ -149,7 +153,7 @@ class SchedulingService:
             # 1. Wipe all existing matches for this tournament to prevent accumulation
             supabase.table("matches").delete().eq(
                 "tournament_id", tournament_id
-            ).in_("stage", ["Grupos", "Eliminatoria"]).execute()
+            ).in_("stage", ["Grupos"] + list(_KNOCKOUT_STAGES)).execute()
 
             # 2. Fetch all saved draws for the tournament
             draws_resp = (
@@ -215,8 +219,20 @@ class SchedulingService:
                     if pow2 < 4:
                         pow2 = 4
 
-                    while len(seeds) + len(unseeded) < pow2:
-                        unseeded.append("BYE")
+                    # Pad bracket to pow2. For 3+ groups, replace free-pass
+                    # BYEs with "Mejor 2do Lugar" qualifier placeholders so
+                    # every bracket slot is a real match. For ≤2 groups keep
+                    # BYEs (simple Final between the two group winners).
+                    num_qualifiers = pow2 - total_groups
+                    if total_groups > 2 and num_qualifiers > 0:
+                        if num_qualifiers == 1:
+                            unseeded.append("[R1] Mejor 2do Lugar")
+                        else:
+                            for q in range(1, num_qualifiers + 1):
+                                unseeded.append(f"[R1] Mejor 2do Lugar #{q}")
+                    else:
+                        while len(seeds) + len(unseeded) < pow2:
+                            unseeded.append("BYE")
 
                     def seed_tree(depth):
                         if depth == 1:
@@ -235,6 +251,8 @@ class SchedulingService:
                     for i, s in enumerate(seeds):
                         bracket[positions[i]] = s
 
+                    # BYEs pair with seeds first (free pass); qualifiers
+                    # are treated as real entries and distributed normally.
                     unseeded.sort(key=lambda x: x != "BYE")
                     ui = 0
                     for pos in positions:
@@ -265,7 +283,7 @@ class SchedulingService:
                                     "category_id": cat_id,
                                     "subcategory_id": scat_id,
                                     "match_type": fmt,
-                                    "stage": "Eliminatoria",
+                                    "stage": round_name,
                                     "status": "Scheduled",
                                     "score_team_a": p1,
                                     "score_team_b": p2,
@@ -504,7 +522,7 @@ class SchedulingService:
                         prev = group_end_dates.get(b_h, start_date.date())
                         if dt.date() > prev:
                             group_end_dates[b_h] = dt.date()
-                    elif b_stage == "Eliminatoria":
+                    elif b_stage in _KNOCKOUT_STAGES:
                         b_round = _extract_round(b)
                         if b_round > 0:
                             rk = f"{b_h}_R{b_round}"
@@ -545,12 +563,12 @@ class SchedulingService:
             max_ko_round = defaultdict(int)
             if booked_resp.data:
                 for b in booked_resp.data:
-                    if b.get("stage") == "Eliminatoria":
+                    if b.get("stage", "") in _KNOCKOUT_STAGES:
                         b_dbl = b.get("match_type") == "Dobles"
                         b_h = f"{b.get('category_id')}_{b.get('subcategory_id')}_{b_dbl}"
                         max_ko_round[b_h] = max(max_ko_round[b_h], _extract_round(b))
             for m in queue:
-                if m.get("stage") == "Eliminatoria":
+                if m.get("stage", "") in _KNOCKOUT_STAGES:
                     h = f"{m.get('category_id')}_{m.get('subcategory_id')}_{m.get('match_type') == 'Dobles'}"
                     max_ko_round[h] = max(max_ko_round[h], _extract_round(m))
 
@@ -569,6 +587,7 @@ class SchedulingService:
                 group_end_dates, eliminatoria_end_dates, max_ko_round,
                 population_map, remaining_playable_days,
                 daily_cap=_DAILY_MATCH_CAP_NORMAL,
+                ko_min_rest_gap=1,
             )
 
             # ── Overflow pass: retry failed matches with relaxed cap ──
@@ -582,6 +601,7 @@ class SchedulingService:
                         group_end_dates, eliminatoria_end_dates, max_ko_round,
                         population_map, remaining_playable_days,
                         daily_cap=_DAILY_MATCH_CAP_OVERFLOW,
+                        ko_min_rest_gap=0,
                     )
                     updates.extend(ov_updates)
                     overflow_count = len(ov_updates)
@@ -636,17 +656,29 @@ def _run_scheduling_pass(
     group_end_dates, eliminatoria_end_dates, max_ko_round,
     population_map, remaining_playable_days,
     daily_cap=_DAILY_MATCH_CAP_NORMAL,
+    ko_min_rest_gap=1,
 ):
     """
     Core scheduling loop. Evaluates every match in `queue` against every
     available slot, computing a penalty score. The slot with the lowest
     penalty wins.
 
+    Args:
+        ko_min_rest_gap: Floor for the inter-round knockout rest gap.
+            Normal pass uses 1 (next calendar day). Overflow pass uses
+            0 (same-day allowed) so knockout rounds can be packed when
+            the calendar demands it.
+
     Returns (updates, failed_count, failed_ids, overflow_ids).
     """
     updates = []
     failed_count = 0
     failed_ids = []
+
+    # Track failed knockout rounds so child rounds cascade-fail too.
+    # Prevents chronological inversions (e.g. Final scheduled before
+    # its Semifinal when the Semifinal couldn't find a slot).
+    failed_ko_rounds = set()  # set of "h_react_R#"
 
     for match in queue:
         round_val = _extract_round(match)
@@ -658,6 +690,15 @@ def _run_scheduling_pass(
         m_is_doubles = match.get("match_type") == "Dobles"
         h_react = f"{match.get('category_id')}_{match.get('subcategory_id')}_{m_is_doubles}"
 
+        # ── Cascade-fail: if the parent KO round failed, skip ─────
+        if m_stage in _KNOCKOUT_STAGES and round_val > 1:
+            parent_rk = f"{h_react}_R{round_val - 1}"
+            if parent_rk in failed_ko_rounds:
+                failed_count += 1
+                failed_ids.append(match["id"])
+                failed_ko_rounds.add(f"{h_react}_R{round_val}")
+                continue
+
         # Player IDs for rest-gap penalty calculation
         m_player_ids = [
             match.get(k)
@@ -667,16 +708,33 @@ def _run_scheduling_pass(
 
         # Knockout round classification
         total_rounds = max_ko_round.get(h_react, round_val)
-        is_final = (m_stage == "Eliminatoria" and round_val == total_rounds and total_rounds > 0)
-        is_semifinal = (m_stage == "Eliminatoria" and round_val == total_rounds - 1 and total_rounds > 1)
+        is_final = (m_stage in _KNOCKOUT_STAGES and round_val == total_rounds and total_rounds > 0)
+        is_semifinal = (m_stage in _KNOCKOUT_STAGES and round_val == total_rounds - 1 and total_rounds > 1)
         is_late_ko = is_final or is_semifinal
 
         # ── Compute rest-day gap for knockout cascading ───────────
-        # If tournament has enough remaining days, enforce 1 full rest
-        # day between knockout rounds. Otherwise fall back to next-day.
-        ko_rest_gap = 1  # Minimum: next calendar day
-        if m_stage == "Eliminatoria" and len(remaining_playable_days) > (total_rounds - round_val + 2):
-            ko_rest_gap = 2  # 1 full rest day between rounds
+        # Adaptive: only enforce a full rest day (gap=2) between knockout
+        # rounds when there are enough playable days LEFT between the
+        # parent phase's end and the tournament end. Otherwise uses the
+        # minimum floor (1 for normal pass, 0 for overflow pass).
+        ko_rest_gap = ko_min_rest_gap
+
+        if m_stage in _KNOCKOUT_STAGES:
+            # Look up when the parent phase ends for this category
+            if round_val > 1:
+                parent_end = eliminatoria_end_dates.get(f"{h_react}_R{round_val - 1}")
+            else:
+                parent_end = group_end_dates.get(h_react)
+
+            # Count playable days AFTER parent_end up to tournament end
+            if parent_end:
+                days_left = sum(
+                    1 for d in remaining_playable_days if d > parent_end
+                )
+                rounds_remaining = total_rounds - round_val + 1
+                # Need at least 2 days per remaining round for gap=2
+                if days_left >= rounds_remaining * 2:
+                    ko_rest_gap = 2
 
         best_slot = None
         best_court = None
@@ -688,9 +746,9 @@ def _run_scheduling_pass(
             slot_date = dt_val.date()
 
             # ── Cascading phase locks ─────────────────────────────
-            # Eliminatoria cannot begin until its parent phase
+            # Knockout cannot begin until its parent phase
             # (groups or prior knockout round) finishes, with a rest gap.
-            if m_stage == "Eliminatoria":
+            if m_stage in _KNOCKOUT_STAGES:
                 if round_val > 1:
                     parent_end = eliminatoria_end_dates.get(
                         f"{h_react}_R{round_val - 1}"
@@ -810,7 +868,7 @@ def _run_scheduling_pass(
                 prev = group_end_dates.get(h_react, start_date.date())
                 if slot_date > prev:
                     group_end_dates[h_react] = slot_date
-            elif m_stage == "Eliminatoria":
+            elif m_stage in _KNOCKOUT_STAGES:
                 rk = f"{h_react}_R{round_val}"
                 prev = eliminatoria_end_dates.get(rk, start_date.date())
                 if slot_date > prev:
@@ -826,5 +884,8 @@ def _run_scheduling_pass(
         else:
             failed_count += 1
             failed_ids.append(match["id"])
+            # Mark this KO round as failed so child rounds cascade-fail
+            if m_stage in _KNOCKOUT_STAGES:
+                failed_ko_rounds.add(f"{h_react}_R{round_val}")
 
     return updates, failed_count, failed_ids, failed_ids
