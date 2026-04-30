@@ -20,10 +20,14 @@ st.set_page_config(
 
 apply_wimbledon_ui()
 
-# --- 2. INITIALIZE STATE ---
+# --- 2. AUTH GATE (must pass before any data is loaded) ---
+from utils.auth import require_auth
+user = require_auth()
+
+# --- 3. INITIALIZE STATE ---
 init_session_state()
 
-# --- 3. MAIN NAVIGATION TOGGLE ---
+# --- 4. MAIN NAVIGATION TOGGLE ---
 if not st.session_state.tournament_active:
     from views.landing import render_landing_view
     render_landing_view()

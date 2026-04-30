@@ -53,6 +53,37 @@ def render_sidebar():
         l_logo = st.file_uploader("Patrocinador Izquierdo (Nayar)", type=["png", "jpg"], disabled=is_finalized)
         r_logo = st.file_uploader("Patrocinador Derecho (Kia)", type=["png", "jpg"], disabled=is_finalized)
         st.divider()
+
+        # --- COACH SESSION INFO ---
+        current_user = st.session_state.get('user')
+        if current_user:
+            coach_name = current_user.get('display_name', 'Coach')
+            coach_email = current_user.get('email', '')
+            st.markdown(
+                f"""
+                <div style="
+                    background: rgba(255,255,255,0.08);
+                    backdrop-filter: blur(15px);
+                    border: 1px solid rgba(255,255,255,0.15);
+                    border-radius: 50px;
+                    padding: 0.6rem 1rem;
+                    margin-bottom: 0.75rem;
+                    text-align: center;
+                ">
+                    <span style="font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.8rem; color: #CCFF00;">
+                        🎾 {coach_name}
+                    </span><br/>
+                    <span style="font-family: 'Inter', sans-serif; font-size: 0.65rem; color: rgba(255,255,255,0.5);">
+                        {coach_email}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button("🚪 CERRAR SESIÓN", use_container_width=True, key="sidebar_logout"):
+                from utils.auth import logout_user
+                logout_user()
+        
         st.caption("Donación por Hugo Aguirre | Version 1.0")
         
     return t_name, l_logo, r_logo

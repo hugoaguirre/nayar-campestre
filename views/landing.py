@@ -4,11 +4,60 @@ from services.tournament_service import TournamentService
 from datetime import datetime, date
 
 
+@st.dialog("👥 Invitar Coach")
+def _show_invite_coach_dialog():
+    """Modal dialog for inviting a new coach to the system."""
+    st.markdown("Ingresa los datos del nuevo coach. Se creará una cuenta con una contraseña temporal.")
+    
+    coach_name = st.text_input(
+        "Nombre completo",
+        placeholder="Ej: Carlos Méndez",
+        key="invite_coach_name"
+    )
+    coach_email = st.text_input(
+        "Email",
+        placeholder="coach@email.com",
+        key="invite_coach_email"
+    )
+    
+    st.markdown(
+        "<small style='opacity:0.5;'>Contraseña temporal: <code>NayarClub2026!</code> — "
+        "El coach deberá cambiarla en su primer inicio de sesión.</small>",
+        unsafe_allow_html=True
+    )
+    
+    if st.button("CREAR CUENTA", type="primary", use_container_width=True):
+        if not coach_name or not coach_email:
+            st.error("Completa todos los campos.")
+        else:
+            with st.spinner("Creando cuenta..."):
+                from utils.auth import invite_coach
+                success = invite_coach(coach_email.strip(), coach_name.strip())
+                if success:
+                    st.success(f"✅ Cuenta creada para **{coach_name}**. Puede iniciar sesión con la contraseña temporal.")
+                    st.toast("👥 Coach invitado exitosamente", icon="✅")
+
+
 def render_landing_view():
     """
     Renders the premium Wimbledon-themed landing page with a list of tournaments
     and an option to create a new one.
     """
+    # 0. Coach Session Bar (Logout available on landing page)
+    current_user = st.session_state.get('user')
+    if current_user:
+        _l, _r = st.columns([5, 1])
+        with _r:
+            coach_display = current_user.get('display_name', 'Coach')
+            st.markdown(
+                f"<p style='text-align:right; font-family:Inter,sans-serif; font-size:0.8rem; "
+                f"color:rgba(255,255,255,0.6); margin-bottom:0;'>🎾 {coach_display}</p>",
+                unsafe_allow_html=True,
+            )
+            if st.button("🚪 CERRAR SESIÓN", use_container_width=True, key="landing_logout"):
+                from utils.auth import logout_user
+                logout_user()
+
     # 1. Page Header
     st.markdown(
         """
@@ -23,13 +72,16 @@ def render_landing_view():
         unsafe_allow_html=True,
     )
 
-    # 1.1 Global Actions (Socio Creation)
-    c_s1, c_s2, c_s3 = st.columns([2, 1, 2])
+    # 1.1 Global Actions (Socio Creation + Coach Invite)
+    c_s1, c_s2, c_s3, c_s4, c_s5 = st.columns([2, 1, 0.2, 1, 2])
     with c_s2:
         if st.button("➕ AÑADIR NUEVO SOCIO", use_container_width=True):
             from components.dialogs import show_add_new_socio_dialog
 
             show_add_new_socio_dialog()
+    with c_s4:
+        if st.button("👥 INVITAR COACH", use_container_width=True):
+            _show_invite_coach_dialog()
 
     # 2. Main Content Layout
     col_left, col_mid, col_right = st.columns([1, 4, 1])
