@@ -97,6 +97,39 @@ def render_login_view():
             letter-spacing: 2px;
             text-transform: uppercase;
         }
+        
+        /* Override the primary button (yellow/green) with Royal Purple */
+        div[data-testid="stFormSubmitButton"] > button,
+        div[data-testid="stFormSubmitButton"] > button:focus {
+            background-color: #450084 !important;
+            color: #ffffff !important;
+            border: 2px solid #ffffff !important;
+            border-radius: 4px !important;
+            font-family: 'Montserrat', sans-serif !important;
+            font-weight: 700 !important;
+            font-size: 0.9rem !important;
+            letter-spacing: 2px !important;
+            text-transform: uppercase !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        div[data-testid="stFormSubmitButton"] > button p {
+            font-family: 'Montserrat', sans-serif !important;
+            font-weight: 700 !important;
+            letter-spacing: 2px !important;
+            color: #ffffff !important;
+        }
+        
+        div[data-testid="stFormSubmitButton"] > button:hover {
+            background-color: #ffffff !important;
+            color: #450084 !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 15px rgba(69, 0, 132, 0.4) !important;
+        }
+        
+        div[data-testid="stFormSubmitButton"] > button:hover p {
+            color: #450084 !important;
+        }
     </style>
     """, unsafe_allow_html=True)
     
