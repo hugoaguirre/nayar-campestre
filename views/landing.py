@@ -43,21 +43,6 @@ def render_landing_view():
     Renders the premium Wimbledon-themed landing page with a list of tournaments
     and an option to create a new one.
     """
-    # 0. Coach Session Bar (Logout available on landing page)
-    current_user = st.session_state.get('user')
-    if current_user:
-        _l, _r = st.columns([5, 1])
-        with _r:
-            coach_display = current_user.get('display_name', 'Coach')
-            st.markdown(
-                f"<p style='text-align:right; font-family:Inter,sans-serif; font-size:0.8rem; "
-                f"color:rgba(255,255,255,0.6); margin-bottom:0;'>🎾 {coach_display}</p>",
-                unsafe_allow_html=True,
-            )
-            if st.button("🚪 CERRAR SESIÓN", use_container_width=True, key="landing_logout"):
-                from utils.auth import logout_user
-                logout_user()
-
     # 1. Page Header
     st.markdown(
         """

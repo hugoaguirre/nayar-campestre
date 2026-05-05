@@ -86,17 +86,13 @@ _DAILY_MATCH_CAP_OVERFLOW = 3
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _build_day_slots(day: datetime) -> list:
-    """Generate the continuous 90-minute slot array for a single calendar day."""
-    config = _GRID_CONFIG.get(day.weekday())
-    if config is None:
-        return []
-    start_hour, num_slots = config
-    slots = []
-    t = day.replace(hour=start_hour, minute=0, second=0, microsecond=0)
-    for _ in range(num_slots):
-        slots.append({"time": t, "is_prime": t.hour >= _PRIME_HOUR})
-        t += timedelta(minutes=_SLOT_MIN)
-    return slots
+    """Generate the continuous 90-minute slot array for a single calendar day.
+
+    Delegates to the shared utility in core/scheduling_utils.py.
+    Returns list of {"time": datetime, "is_prime": bool} for compatibility.
+    """
+    from core.scheduling_utils import generate_tournament_day_slots
+    return generate_tournament_day_slots(day)
 
 
 def _worse(current: str, candidate: str) -> str:

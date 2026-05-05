@@ -80,9 +80,6 @@ def render_sidebar():
                 """,
                 unsafe_allow_html=True,
             )
-            if st.button("🚪 CERRAR SESIÓN", use_container_width=True, key="sidebar_logout"):
-                from utils.auth import logout_user
-                logout_user()
         
         st.caption("Donación por Hugo Aguirre | Version 1.0")
         

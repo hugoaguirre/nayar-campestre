@@ -93,9 +93,10 @@ def get_current_user() -> dict | None:
 
 def require_auth() -> dict:
     """
-    Gate function: checks for authenticated session.
-    If not authenticated, renders the login page and stops execution.
-    Returns the user dict if authenticated.
+    Defense-in-depth gate for admin pages.
+    With st.navigation, unauthenticated users never see admin pages in the menu.
+    This guard protects against direct URL access.
+    Returns the user dict if authenticated, stops execution if not.
     """
     user = get_current_user()
     if user:
@@ -112,9 +113,8 @@ def require_auth() -> dict:
                 return None  # Won't reach here due to rerun
         return user
     
-    # Not authenticated — render login page and stop
-    from views.login import render_login_view
-    render_login_view()
+    # Not authenticated — block access
+    st.error("🔒 Acceso denegado. Inicia sesión para continuar.")
     st.stop()
 
 
