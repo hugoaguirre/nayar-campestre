@@ -17,26 +17,23 @@ if not user:
 # ── Page-specific CSS ─────────────────────────────────────────
 st.markdown("""
 <style>
-.ranking-card {
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(15px);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px;
-    padding: 1.2rem;
-    margin-bottom: 1rem;
-}
+/* ── Position Badges (metallic, matching public page) ───── */
 .rank-badge {
     display: inline-block;
-    background: linear-gradient(135deg, #450084, #6b21a8);
-    color: #fff;
     font-family: 'Montserrat', sans-serif;
-    font-weight: 800;
-    font-size: 1.1rem;
-    width: 38px; height: 38px;
-    line-height: 38px;
+    font-weight: 900;
+    font-size: 0.95rem;
+    width: 36px; height: 36px;
+    line-height: 36px;
     text-align: center;
     border-radius: 50%;
 }
+.rank-gold   { background: linear-gradient(145deg, #f5d442, #c9a227); color: #3d2e00; box-shadow: 0 2px 8px rgba(245,212,66,0.3); }
+.rank-silver { background: linear-gradient(145deg, #d1d5db, #9ca3af); color: #374151; }
+.rank-bronze { background: linear-gradient(145deg, #d4956a, #b07a50); color: #3e2a16; }
+.rank-default { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); }
+
+/* ── Sub-category Pills ────────────────────────────────── */
 .subcat-pill {
     display: inline-block;
     padding: 2px 10px;
@@ -52,10 +49,29 @@ st.markdown("""
 .subcat-B   { background: #60a5fa; color: #1e3a5f; }
 .subcat-C   { background: #34d399; color: #064e3b; }
 .subcat-D   { background: #fbbf24; color: #78350f; }
+
+/* ── Match Cards (st.metric style) ─────────────────────── */
+.ranking-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 3px solid #450084;
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    margin-bottom: 0.6rem;
+}
+.ranking-card:hover {
+    transform: translateY(-3px);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    border-top-color: #450084;
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Phase Labels ──────────────────────────────────────── */
 .phase-challenge { color: #ef4444; font-weight: 700; }
 .phase-defend { color: #22c55e; font-weight: 700; }
-.result-won { color: #CCFF00; font-weight: 700; }
-.result-lost { color: #ef4444; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -79,6 +95,12 @@ def _subcat_css_class(name):
     if name in ("B+",):
         return "subcat-Bplus"
     return f"subcat-{name}"
+
+def _rank_badge_class(pos):
+    if pos == 1: return "rank-gold"
+    if pos == 2: return "rank-silver"
+    if pos == 3: return "rank-bronze"
+    return "rank-default"
 
 
 # ── Header ────────────────────────────────────────────────────
@@ -135,7 +157,7 @@ with tab_ladder:
             cols = st.columns([0.8, 4, 1.5, 0.8, 0.8, 0.8])
 
             with cols[0]:
-                st.markdown(f'<div class="rank-badge">{pos}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="rank-badge {_rank_badge_class(pos)}">{pos}</div>', unsafe_allow_html=True)
             with cols[1]:
                 st.markdown(
                     f"<p style='font-family:Montserrat,sans-serif; font-weight:600; "

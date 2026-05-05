@@ -10,53 +10,73 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&family=Inter:wght@400;500;600&display=swap');
 
-.ladder-row {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.7rem 1.2rem;
-    border-radius: 10px;
-    margin-bottom: 4px;
+/* ── Leaderboard Table ─────────────────────────────────── */
+.ladder-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 3px;
+}
+.ladder-table tr {
     transition: background 0.2s;
 }
-.ladder-row:hover {
-    background: rgba(255,255,255,0.06);
+.ladder-table tr:hover {
+    background: rgba(255,255,255,0.04);
 }
-.ladder-pos {
+.ladder-table td {
+    padding: 0.55rem 0.6rem;
+    vertical-align: middle;
+}
+
+/* ── Position Badges ───────────────────────────────────── */
+.pos-badge {
     font-family: 'Montserrat', sans-serif;
     font-weight: 900;
-    font-size: 1.3rem;
-    width: 44px;
-    height: 44px;
-    line-height: 44px;
+    font-size: 0.95rem;
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
     text-align: center;
     border-radius: 50%;
-    flex-shrink: 0;
+    display: inline-block;
 }
-.pos-top3 {
-    background: linear-gradient(135deg, #CCFF00, #a3cc00);
-    color: #003319;
+.pos-gold {
+    background: linear-gradient(145deg, #f5d442, #c9a227);
+    color: #3d2e00;
+    box-shadow: 0 2px 8px rgba(245,212,66,0.3);
 }
-.pos-normal {
-    background: rgba(255,255,255,0.1);
-    color: #ffffff;
+.pos-silver {
+    background: linear-gradient(145deg, #d1d5db, #9ca3af);
+    color: #374151;
+    box-shadow: 0 2px 8px rgba(209,213,219,0.2);
 }
-.ladder-name {
+.pos-bronze {
+    background: linear-gradient(145deg, #d4956a, #b07a50);
+    color: #3e2a16;
+    box-shadow: 0 2px 8px rgba(212,149,106,0.2);
+}
+.pos-default {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.6);
+}
+
+/* ── Player Name ───────────────────────────────────────── */
+.player-name {
     font-family: 'Montserrat', sans-serif;
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: #ffffff;
-    flex-grow: 1;
 }
+
+/* ── Sub-category Pills ────────────────────────────────── */
 .sc-pill {
     display: inline-block;
-    padding: 3px 12px;
+    padding: 2px 10px;
     border-radius: 20px;
     font-family: 'Montserrat', sans-serif;
     font-weight: 700;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     letter-spacing: 1px;
-    flex-shrink: 0;
+    text-transform: uppercase;
 }
 .sc-A, .sc-AA  { background: #CCFF00; color: #003319; }
 .sc-Bplus      { background: #a78bfa; color: #1e1b4b; }
@@ -64,29 +84,179 @@ st.markdown("""
 .sc-C          { background: #34d399; color: #064e3b; }
 .sc-D          { background: #fbbf24; color: #78350f; }
 
-.match-card {
-    background: rgba(255,255,255,0.06);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
-    padding: 0.8rem 1.2rem;
-    margin-bottom: 0.5rem;
+/* ── Sub-category Section Headers ──────────────────────── */
+.subcat-header {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin: 0.8rem 0 0.3rem 0;
 }
-.score-badge {
+.subcat-header .label {
     font-family: 'Montserrat', sans-serif;
     font-weight: 800;
-    font-size: 1rem;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.subcat-header .line {
+    flex-grow: 1;
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+}
+
+/* ── Wimbledon Scorebug Cards ─────────────────────────── */
+.match-stat-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-top: 3px solid #450084;
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    min-width: 340px;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    overflow: hidden;
+}
+.match-stat-card:hover {
+    transform: translateY(-3px);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    border-top-color: #450084;
+    box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+}
+.match-stat-card .meta {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0.5rem 0.8rem 0.3rem;
+}
+
+/* Scorebug table */
+.scorebug {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Montserrat', sans-serif;
+}
+.scorebug tr {
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.scorebug tr:first-child {
+    border-top: none;
+}
+/* Player name cell */
+.scorebug .sb-name {
+    padding: 0.5rem 0.6rem;
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+.scorebug .sb-name .sb-pos {
+    font-weight: 500;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.45);
+    margin-left: 0.3rem;
+}
+/* Set score cells */
+.scorebug .sb-set {
+    width: 32px;
+    text-align: center;
+    padding: 0.5rem 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.04);
+    border-left: 1px solid rgba(255,255,255,0.06);
+}
+.scorebug .sb-set.set-won {
+    font-weight: 800;
     color: #CCFF00;
 }
-.vs-label {
-    color: rgba(255,255,255,0.3);
-    font-weight: 900;
-    font-size: 0.75rem;
-    letter-spacing: 2px;
+/* Winner row gets a subtle left accent */
+.scorebug tr.sb-winner .sb-name {
+    color: #ffffff;
+    font-weight: 700;
 }
-.section-divider {
-    border-top: 1px solid rgba(255,255,255,0.08);
-    margin: 0.3rem 0;
+.scorebug tr.sb-loser .sb-name {
+    color: rgba(255,255,255,0.4);
+    font-weight: 500;
+}
+
+/* Pending match (no scores yet) */
+.sb-pending {
+    text-align: center;
+    padding: 0.6rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.25);
+}
+
+/* ── Match Carousel ────────────────────────────────────── */
+.match-carousel {
+    display: flex;
+    gap: 0.8rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding: 0.5rem 0 1rem 0;
+    -webkit-overflow-scrolling: touch;
+}
+.match-carousel::-webkit-scrollbar {
+    height: 4px;
+}
+.match-carousel::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+}
+.match-carousel::-webkit-scrollbar-thumb {
+    background: #450084;
+    border-radius: 4px;
+}
+
+/* ── Phase Banner ──────────────────────────────────────── */
+.phase-banner {
+    text-align: center;
+    margin: 1.2rem 0;
+    padding: 0.8rem 1rem;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+}
+.phase-banner .week-label {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+.phase-banner .phase-text {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 900;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    margin-top: 0.2rem;
+}
+
+
+
+/* ── Section Title ─────────────────────────────────────── */
+.section-title {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+    margin: 2rem 0 0.8rem 0;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -154,11 +324,24 @@ def _fetch_week_matches(week_id):
     )
     return resp.data or []
 
+
 def _get_subcat_label(position, ranges):
     for r in ranges:
         if r["position_start"] <= position <= r["position_end"]:
             return (r.get("subcategories") or {}).get("name", "")
     return ""
+
+def _short_name(first: str, last: str) -> str:
+    """Truncate name to 'First Lastname' (2 words max) for scorebug."""
+    first = (first or "").strip()
+    last = (last or "").strip()
+    if not first:
+        return last
+    if not last:
+        return first
+    # Keep only the first word of the last name
+    last_word = last.split()[0] if last else ""
+    return f"{first} {last_word}"
 
 def _sc_css(name):
     if name in ("A", "AA"):
@@ -167,175 +350,194 @@ def _sc_css(name):
         return "sc-Bplus"
     return f"sc-{name}"
 
+def _pos_class(pos):
+    if pos == 1:
+        return "pos-gold"
+    if pos == 2:
+        return "pos-silver"
+    if pos == 3:
+        return "pos-bronze"
+    return "pos-default"
+
 
 # ── Hero Header ───────────────────────────────────────────────
 st.markdown("""
-<div style="text-align:center; padding-top:2rem; padding-bottom:1rem;">
+<div style="text-align:center; padding-top:1.5rem; padding-bottom:0.5rem;">
     <h1 style="font-family:'Montserrat',sans-serif; font-weight:900;
-               font-size:3.5rem; margin:0; letter-spacing:3px; color:#fff;">
+               font-size:3.2rem; margin:0; letter-spacing:3px; color:#fff;">
         🏆 RANKING
     </h1>
     <p style="color:#CCFF00; font-family:'Montserrat',sans-serif;
-              letter-spacing:6px; font-size:0.85rem; font-weight:600;">
+              letter-spacing:6px; font-size:0.75rem; font-weight:600; margin-top:0.3rem;">
         NAYAR CLUB CAMPESTRE
     </p>
 </div>
 """, unsafe_allow_html=True)
 
-# ── Category Toggle ───────────────────────────────────────────
+
+# ── Category Tabs ─────────────────────────────────────────────
 categories = _fetch_categories()
 if not categories:
     st.info("No hay categorías configuradas.")
     st.stop()
 
 cat_names = [c["name"] for c in categories]
-# Use segmented pills
-cols = st.columns(len(cat_names))
-if "pub_cat" not in st.session_state:
-    st.session_state.pub_cat = cat_names[0]
 
-for i, cname in enumerate(cat_names):
-    with cols[i]:
-        is_active = st.session_state.pub_cat == cname
-        btn_style = "background:#CCFF00;color:#003319;font-weight:800;" if is_active else "background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6);"
-        if st.button(
-            cname.upper(),
-            key=f"cat_btn_{cname}",
-            use_container_width=True,
-        ):
-            st.session_state.pub_cat = cname
-            st.rerun()
-
-selected_cat = next(c for c in categories if c["name"] == st.session_state.pub_cat)
-cat_id = selected_cat["id"]
-
-# ── Fetch Data ────────────────────────────────────────────────
-ladder = _fetch_ladder(cat_id)
-ranges = _fetch_subcat_ranges(cat_id)
-current_week = _fetch_current_week(cat_id)
-
-# ── Current Week Banner ──────────────────────────────────────
-if current_week:
-    phase = current_week["phase"]
-    wn = current_week["week_number"]
-    if phase == "challenge":
-        phase_text = "⚔️ ¡HORA DE SUBIR!"
-        phase_color = "#ef4444"
-    else:
-        phase_text = "🛡️ DEFIENDE TU CORONA"
-        phase_color = "#22c55e"
-
+# ── Phase Banner (rendered once above tabs) ───────────────────
+_first_week = _fetch_current_week(categories[0]["id"])
+if _first_week:
+    _phase = _first_week["phase"]
+    _wn = _first_week["week_number"]
+    _phase_text = "⚔️ CHALLENGE" if _phase == "challenge" else "🛡️ DEFEND"
     st.markdown(f"""
-    <div style="text-align:center; margin:1rem 0 1.5rem 0;
-                background:rgba(255,255,255,0.06); backdrop-filter:blur(15px);
-                border:1px solid rgba(255,255,255,0.1); border-radius:12px;
-                padding:1rem;">
-        <span style="font-family:'Montserrat',sans-serif; font-size:0.7rem;
-                     color:rgba(255,255,255,0.4); letter-spacing:3px;">
-            SEMANA {wn}
-        </span>
-        <h3 style="font-family:'Montserrat',sans-serif; font-weight:900;
-                   color:{phase_color}; margin:0.3rem 0 0 0; letter-spacing:2px;">
-            {phase_text}
-        </h3>
+    <div class="phase-banner">
+        <div class="week-label">SEMANA {_wn}</div>
+        <div class="phase-text" style="color:#ffffff;">{_phase_text}</div>
     </div>
     """, unsafe_allow_html=True)
 
-# ── Leaderboard Table ─────────────────────────────────────────
-if not ladder:
-    st.markdown("""
-    <div style="text-align:center; padding:3rem; background:rgba(255,255,255,0.06);
-                border-radius:12px; margin:2rem 0;">
-        <p style="font-family:'Montserrat',sans-serif; color:rgba(255,255,255,0.5);
-                  font-size:1rem;">🎾 Escalera en construcción</p>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    prev_subcat = None
-    for entry in ladder:
-        pos = entry["position"]
-        player = entry.get("players", {}) or {}
-        name = f"{player.get('first_name','')} {player.get('last_name','')}"
-        subcat = _get_subcat_label(pos, ranges)
+cat_tabs = st.tabs([n.upper() for n in cat_names])
 
-        # Sub-category section divider
-        if subcat and subcat != prev_subcat:
-            if prev_subcat is not None:
-                st.markdown('<div class="section-divider"></div>', unsafe_allow_html=True)
-            prev_subcat = subcat
+for cat_idx, cat_tab in enumerate(cat_tabs):
+    selected_cat = categories[cat_idx]
+    cat_id = selected_cat["id"]
 
-        pos_class = "pos-top3" if pos <= 3 else "pos-normal"
-        pill_html = f'<span class="sc-pill {_sc_css(subcat)}">{subcat}</span>' if subcat else ""
+    with cat_tab:
+        # ── Fetch Data ────────────────────────────────────────
+        ladder = _fetch_ladder(cat_id)
+        ranges = _fetch_subcat_ranges(cat_id)
+        current_week = _fetch_current_week(cat_id)
 
-        st.markdown(f"""
-        <div class="ladder-row">
-            <div class="ladder-pos {pos_class}">{pos}</div>
-            <div class="ladder-name">{name}</div>
-            {pill_html}
-        </div>
-        """, unsafe_allow_html=True)
 
-# ── Current Week Matches ──────────────────────────────────────
-if current_week:
-    week_matches = _fetch_week_matches(current_week["id"])
-    if week_matches:
-        st.markdown("""
-        <div style="margin-top:2rem;">
-            <h3 style="font-family:'Montserrat',sans-serif; font-weight:800;
-                       font-size:1.1rem; letter-spacing:2px; color:rgba(255,255,255,0.7);">
-                📋 PARTIDOS DE LA SEMANA
-            </h3>
-        </div>
-        """, unsafe_allow_html=True)
-
-        for m in week_matches:
-            defender = m.get("defender", {}) or {}
-            challenger = m.get("challenger", {}) or {}
-            d_name = f"{defender.get('first_name','')} {defender.get('last_name','')}"
-            c_name = f"{challenger.get('first_name','')} {challenger.get('last_name','')}"
-            d_pos = m["defender_position"]
-            c_pos = m["challenger_position"]
-
-            sched = ""
-            if m.get("scheduled_date") and m.get("scheduled_time"):
-                sched_time = m["scheduled_time"][:5] if isinstance(m["scheduled_time"], str) else str(m["scheduled_time"])
-                sched = f"{m['scheduled_date']} · {sched_time} · Cancha {m.get('court_number','?')}"
-
-            if m["is_completed"]:
-                # Show score
-                s1 = f"{m.get('set1_defender',0)}-{m.get('set1_challenger',0)}"
-                s2 = f"{m.get('set2_defender',0)}-{m.get('set2_challenger',0)}"
-                s3 = ""
-                if m.get("set3_defender") is not None:
-                    s3 = f" {m['set3_defender']}-{m['set3_challenger']}"
-                score_html = f'<span class="score-badge">{s1} {s2}{s3}</span>'
-                winner_id = m.get("winner_id")
-                d_style = "color:#CCFF00;font-weight:800;" if winner_id == m["defender_id"] else "color:rgba(255,255,255,0.5);"
-                c_style = "color:#CCFF00;font-weight:800;" if winner_id == m["challenger_id"] else "color:rgba(255,255,255,0.5);"
-            else:
-                score_html = f'<span style="font-size:0.7rem; color:rgba(255,255,255,0.3);">{sched}</span>'
-                d_style = c_style = ""
-
-            st.markdown(f"""
-            <div class="match-card">
-                <div style="display:flex; align-items:center; justify-content:center; gap:0.8rem; flex-wrap:wrap;">
-                    <span style="font-family:'Montserrat',sans-serif; font-size:0.9rem; {d_style}">
-                        #{d_pos} {d_name}
-                    </span>
-                    <span class="vs-label">VS</span>
-                    <span style="font-family:'Montserrat',sans-serif; font-size:0.9rem; {c_style}">
-                        #{c_pos} {c_name}
-                    </span>
-                </div>
-                <div style="text-align:center; margin-top:0.4rem;">{score_html}</div>
+        # ── Leaderboard Table ──────────────────────────────────
+        if not ladder:
+            st.markdown("""
+            <div style="text-align:center; padding:3rem 1rem;">
+                <p style="font-family:'Montserrat',sans-serif; color:rgba(255,255,255,0.35);
+                          font-size:0.9rem; letter-spacing:2px;">
+                    🎾 ESCALERA EN CONSTRUCCIÓN
+                </p>
             </div>
             """, unsafe_allow_html=True)
+        else:
+            prev_subcat = None
+            table_html = '<table class="ladder-table">'
+
+            for entry in ladder:
+                pos = entry["position"]
+                player = entry.get("players", {}) or {}
+                name = f"{player.get('first_name','')} {player.get('last_name','')}"
+                subcat = _get_subcat_label(pos, ranges)
+
+                if subcat and subcat != prev_subcat:
+                    table_html += (
+                        f'<tr><td colspan="2" style="padding:0;">'
+                        f'<div class="subcat-header">'
+                        f'<span class="line"></span>'
+                        f'<span class="label">{subcat}</span>'
+                        f'<span class="line"></span>'
+                        f'</div></td></tr>'
+                    )
+                    prev_subcat = subcat
+
+                badge_cls = _pos_class(pos)
+                table_html += (
+                    f'<tr>'
+                    f'<td style="width:50px;"><span class="pos-badge {badge_cls}">{pos}</span></td>'
+                    f'<td><span class="player-name">{name}</span></td>'
+                    f'</tr>'
+                )
+
+            table_html += '</table>'
+            st.markdown(table_html, unsafe_allow_html=True)
+
+        # ── Weekly Matches Carousel ───────────────────────────
+        if current_week:
+            week_matches = _fetch_week_matches(current_week["id"])
+            if week_matches:
+                st.markdown('<p class="section-title">📋 Partidos de la Semana</p>', unsafe_allow_html=True)
+
+                carousel_cards = ""
+                for m in week_matches:
+                    defender = m.get("defender", {}) or {}
+                    challenger = m.get("challenger", {}) or {}
+                    d_name = _short_name(defender.get('first_name',''), defender.get('last_name',''))
+                    c_name = _short_name(challenger.get('first_name',''), challenger.get('last_name',''))
+                    d_pos = m["defender_position"]
+                    c_pos = m["challenger_position"]
+
+                    meta = ""
+                    if m.get("scheduled_date") and m.get("scheduled_time"):
+                        t = m["scheduled_time"][:5] if isinstance(m["scheduled_time"], str) else str(m["scheduled_time"])
+                        meta = f"{m['scheduled_date']} · {t} · Cancha {m.get('court_number', '?')}"
+
+                    if m["is_completed"]:
+                        winner_id = m.get("winner_id")
+                        d_won = winner_id == m["defender_id"]
+                        c_won = winner_id == m["challenger_id"]
+
+                        # Build set cells for each player
+                        sets = [
+                            (m.get('set1_defender'), m.get('set1_challenger')),
+                            (m.get('set2_defender'), m.get('set2_challenger')),
+                        ]
+                        if m.get('set3_defender') is not None:
+                            sets.append((m.get('set3_defender'), m.get('set3_challenger')))
+
+                        d_sets = ""
+                        c_sets = ""
+                        for ds, cs in sets:
+                            d_set_won = "set-won" if ds is not None and cs is not None and ds > cs else ""
+                            c_set_won = "set-won" if ds is not None and cs is not None and cs > ds else ""
+                            d_sets += f'<td class="sb-set {d_set_won}">{ds if ds is not None else ""}</td>'
+                            c_sets += f'<td class="sb-set {c_set_won}">{cs if cs is not None else ""}</td>'
+
+                        # Pad to 3 set columns
+                        for _ in range(3 - len(sets)):
+                            d_sets += '<td class="sb-set"></td>'
+                            c_sets += '<td class="sb-set"></td>'
+
+                        d_row_cls = 'sb-winner' if d_won else 'sb-loser'
+                        c_row_cls = 'sb-winner' if c_won else 'sb-loser'
+
+                        scorebug = (
+                            f'<table class="scorebug">'
+                            f'<tr class="{d_row_cls}">'
+                            f'<td class="sb-name">{d_name} <span class="sb-pos">{d_pos}</span></td>'
+                            f'{d_sets}'
+                            f'</tr>'
+                            f'<tr class="{c_row_cls}">'
+                            f'<td class="sb-name">{c_name} <span class="sb-pos">{c_pos}</span></td>'
+                            f'{c_sets}'
+                            f'</tr>'
+                            f'</table>'
+                        )
+                    else:
+                        scorebug = (
+                            f'<table class="scorebug">'
+                            f'<tr>'
+                            f'<td class="sb-name">{d_name} <span class="sb-pos">{d_pos}</span></td>'
+                            f'<td class="sb-set"></td><td class="sb-set"></td><td class="sb-set"></td></tr>'
+                            f'<tr>'
+                            f'<td class="sb-name">{c_name} <span class="sb-pos">{c_pos}</span></td>'
+                            f'<td class="sb-set"></td><td class="sb-set"></td><td class="sb-set"></td></tr>'
+                            f'</table>'
+                        )
+
+                    carousel_cards += (
+                        f'<div class="match-stat-card">'
+                        f'<div class="meta">{meta if meta else "Horario por definir"}</div>'
+                        f'{scorebug}'
+                        f'</div>'
+                    )
+
+                st.markdown(f'<div class="match-carousel">{carousel_cards}</div>', unsafe_allow_html=True)
 
 # ── Footer ────────────────────────────────────────────────────
 st.markdown("""
-<div style="text-align:center; margin-top:3rem; padding-bottom:2rem; opacity:0.3;">
-    <p style="font-family:'Montserrat',sans-serif; font-size:0.65rem;
-              color:#ffffff; letter-spacing:3px;">
+<div style="text-align:center; margin-top:3rem; padding-bottom:2rem;">
+    <p style="font-family:'Montserrat',sans-serif; font-size:0.6rem;
+              color:rgba(255,255,255,0.2); letter-spacing:3px;">
         ESTABLECIDO 1974 · CLUB NAYAR CAMPESTRE
     </p>
 </div>
