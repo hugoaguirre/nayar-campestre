@@ -8,7 +8,7 @@ from utils.auth import get_current_user
 st.set_page_config(
     page_title="Club Nayar Campestre - Tenis | Manejador de Torneos", 
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 apply_wimbledon_ui()

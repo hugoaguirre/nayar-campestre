@@ -18,8 +18,21 @@ def apply_wimbledon_ui():
         /* Hides the "Made with Streamlit" footer banner */
         footer {visibility: hidden;}
         
-        /* Hides the top app toolbar containing the Fork button */
-        header {visibility: hidden;}
+        /* Hide Default Streamlit Menu */
+        #MainMenu {visibility: hidden;}
+        
+        /* Make header transparent instead of completely hidden to keep the expand/collapse button and loading spinner */
+        header[data-testid="stHeader"] {
+            background-color: transparent !important;
+            background-image: none !important;
+            border: none !important;
+        }
+        
+        /* Hide the top-right toolbar actions (Deploy, Fork) without killing the sidebar toggle */
+        [data-testid="stToolbarActions"] {
+            visibility: hidden !important;
+            display: none !important;
+        }
 
         /* Hide the Deploy button entirely */
         [data-testid="stAppDeploy"] {
