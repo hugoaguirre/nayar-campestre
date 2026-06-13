@@ -70,10 +70,12 @@ def run_migration():
         resp = q.execute()
         
         if not resp.data:
+            gender_val = "M" if str(row.get('Categoría', '')).strip().lower() == "varonil" else "F"
             data = {
                 "first_name": fname,
                 "last_name": lname,
-                "phone": phone
+                "phone": phone,
+                "gender": gender_val
             }
             ins = supabase.table('players').insert(data).execute()
             p_id = ins.data[0]['id']
