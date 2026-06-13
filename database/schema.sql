@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS players (
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     phone TEXT,
+    gender TEXT CHECK (gender IN ('M', 'F')),  -- 'M' = Varonil, 'F' = Femenil
     created_at TIMESTAMPTZ DEFAULT NOW(),
     -- Categories are OMITTED here as they are per-tournament (See Registrations)
     UNIQUE(first_name, last_name, phone)

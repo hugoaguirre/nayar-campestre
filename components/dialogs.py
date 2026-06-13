@@ -261,7 +261,13 @@ def show_add_new_socio_dialog():
     with c2:
         f_last = st.text_input("Apellido(s)", placeholder="Ej. Federer")
 
-    f_phone = st.text_input("Celular", placeholder="Ej. 311...")
+    c3, c4 = st.columns(2)
+    with c3:
+        f_phone = st.text_input("Celular", placeholder="Ej. 311...")
+    with c4:
+        f_genero = st.selectbox("Género", ["Masculino", "Femenino"])
+
+    gender_map = {"Masculino": "M", "Femenino": "F"}
 
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("CREAR SOCIO", type="primary", use_container_width=True):
@@ -273,6 +279,7 @@ def show_add_new_socio_dialog():
                 "Nombre": f_name,
                 "Apellido": f_last,
                 "Celular": f_phone,
+                "Género": gender_map[f_genero],
                 "Categoría": "Varonil",  # Placeholders for the logic, but it only creates player record
                 "Subcategoría": "A",
                 "Singles": "No",

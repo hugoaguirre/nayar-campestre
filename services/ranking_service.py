@@ -592,3 +592,126 @@ class RankingService:
         ]
         if rows:
             supabase.table("ranking_subcategory_ranges").insert(rows).execute()
+
+    # ═══════════════════════════════════════════════════════════
+    # SEASON ARCHIVE & RESET
+    # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def archive_season(category_id, season_name, ended_by=None):
+        """
+        Snapshot the current ranking state into ranking_seasons.
+
+        Stores:
+          - final_ladder: full ordered ladder with player names + subcategory
+          - weekly_results: all weeks with their match details and scores
+
+        Returns the created season row or None on failure.
+        """
+        supabase = get_supabase_client()
+
+        # 1. Snapshot the final ladder
+        ladder = RankingService.get_current_ladder(category_id)
+        ladder_snapshot = [
+            {
+                "position": entry["position"],
+                "player_id": entry["player_id"],
+                "first_name": entry["first_name"],
+                "last_name": entry["last_name"],
+                "subcategory": entry.get("subcategory", ""),
+            }
+            for entry in ladder
+        ]
+
+        # 2. Snapshot all weeks and their matches
+        weeks = RankingService.get_weeks(category_id, limit=999)
+        weekly_snapshot = []
+        for w in weeks:
+            matches = RankingService.get_week_matches(w["id"])
+            matches_clean = []
+            for m in matches:
+                defender = m.get("defender", {}) or {}
+                challenger = m.get("challenger", {}) or {}
+                matches_clean.append({
+                    "defender": {
+                        "player_id": m["defender_id"],
+                        "position": m["defender_position"],
+                        "first_name": defender.get("first_name", ""),
+                        "last_name": defender.get("last_name", ""),
+                    },
+                    "challenger": {
+                        "player_id": m["challenger_id"],
+                        "position": m["challenger_position"],
+                        "first_name": challenger.get("first_name", ""),
+                        "last_name": challenger.get("last_name", ""),
+                    },
+                    "scores": {
+                        "set1_defender": m.get("set1_defender"),
+                        "set1_challenger": m.get("set1_challenger"),
+                        "set2_defender": m.get("set2_defender"),
+                        "set2_challenger": m.get("set2_challenger"),
+                        "set3_defender": m.get("set3_defender"),
+                        "set3_challenger": m.get("set3_challenger"),
+                    },
+                    "winner_id": m.get("winner_id"),
+                    "is_forfeit": m.get("is_forfeit", False),
+                    "is_completed": m.get("is_completed", False),
+                    "scheduled_date": str(m.get("scheduled_date", "")),
+                    "scheduled_time": str(m.get("scheduled_time", ""))[:5] if m.get("scheduled_time") else None,
+                    "court_number": m.get("court_number"),
+                })
+
+            weekly_snapshot.append({
+                "week_number": w["week_number"],
+                "phase": w["phase"],
+                "week_start_date": str(w.get("week_start_date", "")),
+                "week_end_date": str(w.get("week_end_date", "")),
+                "is_completed": w.get("is_completed", False),
+                "matches": matches_clean,
+            })
+
+        # 3. Insert the season record
+        import json
+        row = {
+            "category_id": category_id,
+            "season_name": season_name,
+            "total_weeks": len(weeks),
+            "final_ladder": json.dumps(ladder_snapshot),
+            "weekly_results": json.dumps(weekly_snapshot),
+        }
+        if ended_by:
+            row["ended_by"] = ended_by
+
+        resp = supabase.table("ranking_seasons").insert(row).execute()
+        return resp.data[0] if resp.data else None
+
+    @staticmethod
+    def reset_ranking(category_id):
+        """
+        Wipe all live ranking data for a category:
+          1. ranking_matches (via CASCADE from ranking_weeks)
+          2. ranking_weeks
+          3. ranking_ladders
+          4. ranking_subcategory_ranges
+
+        Returns True on success.
+        """
+        supabase = get_supabase_client()
+        try:
+            # ranking_matches cascade-delete via ranking_weeks FK
+            supabase.table("ranking_weeks").delete().eq(
+                "category_id", category_id
+            ).execute()
+
+            supabase.table("ranking_ladders").delete().eq(
+                "category_id", category_id
+            ).execute()
+
+            supabase.table("ranking_subcategory_ranges").delete().eq(
+                "category_id", category_id
+            ).execute()
+
+            return True
+        except Exception as e:
+            print(f"Error resetting ranking: {e}")
+            return False

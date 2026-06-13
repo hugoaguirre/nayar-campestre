@@ -114,6 +114,9 @@ def upsert_player_to_supabase(player_data, tournament_name=None):
                 "last_name": player_data['Apellido'],
                 "phone": player_data['Celular'] if player_data['Celular'] else None
             }
+            # Include gender if provided
+            if player_data.get('Género'):
+                p_payload["gender"] = player_data['Género']
             p_ins = supabase.table('players').insert(p_payload).execute()
             if p_ins.data:
                 p_id = p_ins.data[0]['id']

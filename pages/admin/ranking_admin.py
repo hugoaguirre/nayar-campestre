@@ -4,6 +4,8 @@ Admin Ranking Page — Coach panel for managing the ladder ranking system.
 """
 import streamlit as st
 from datetime import date, time, timedelta
+import locale
+from itertools import groupby
 from utils.auth import get_current_user
 from utils.supabase_client import get_supabase_client
 from services.ranking_service import RankingService
@@ -11,7 +13,7 @@ from services.ranking_service import RankingService
 # ── Auth Guard ────────────────────────────────────────────────
 user = get_current_user()
 if not user:
-    st.error("🔒 Acceso denegado. Inicia sesión para continuar.")
+    st.error("Acceso denegado. Inicia sesión para continuar.")
     st.stop()
 
 # ── Page-specific CSS ─────────────────────────────────────────
@@ -72,6 +74,54 @@ st.markdown("""
 /* ── Phase Labels ──────────────────────────────────────── */
 .phase-challenge { color: #ef4444; font-weight: 700; }
 .phase-defend { color: #22c55e; font-weight: 700; }
+
+/* ── Admin Scorebug (read-only completed results) ─────── */
+.admin-scorebug {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Montserrat', sans-serif;
+    margin-top: 0.4rem;
+}
+.admin-scorebug thead th {
+    font-size: 0.6rem;
+    color: rgba(255,255,255,0.3);
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-align: center;
+    padding: 0.2rem 0;
+}
+.admin-scorebug thead th:first-child { text-align: left; padding-left: 0.6rem; }
+.admin-scorebug tr { border-top: 1px solid rgba(255,255,255,0.06); }
+.admin-scorebug tr:first-child { border-top: none; }
+.admin-scorebug .sb-name {
+    padding: 0.45rem 0.6rem;
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: #ffffff;
+    white-space: nowrap;
+}
+.admin-scorebug .sb-name .sb-pos {
+    font-weight: 500;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.45);
+    margin-left: 0.3rem;
+}
+.admin-scorebug .sb-set {
+    width: 36px;
+    text-align: center;
+    padding: 0.45rem 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.5);
+    background: rgba(255,255,255,0.04);
+    border-left: 1px solid rgba(255,255,255,0.06);
+}
+.admin-scorebug .sb-set.set-won {
+    font-weight: 800;
+    color: #CCFF00;
+}
+.admin-scorebug tr.sb-winner .sb-name { color: #ffffff; font-weight: 700; }
+.admin-scorebug tr.sb-loser .sb-name  { color: rgba(255,255,255,0.4); font-weight: 500; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -133,7 +183,7 @@ cat_id = selected_cat["id"]
 
 # ── Tabs ──────────────────────────────────────────────────────
 tab_ladder, tab_subcat, tab_schedule, tab_results = st.tabs([
-    "🪜 ESCALERA", "🏷️ SUBCATEGORÍAS", "📅 PROGRAMAR SEMANA", "🏆 RESULTADOS"
+    "ESCALERA", "SUBCATEGORÍAS", "PROGRAMAR SEMANA", "RESULTADOS"
 ])
 
 
@@ -181,17 +231,25 @@ with tab_ladder:
                         RankingService.reorder_player(cat_id, entry["player_id"], pos + 1)
                         st.rerun()
             with cols[5]:
-                if st.button("🗑️", key=f"rm_{entry['player_id']}", help="Eliminar"):
+                if st.button("✕", key=f"rm_{entry['player_id']}", help="Eliminar"):
                     RankingService.remove_player_from_ladder(cat_id, entry["player_id"])
                     st.rerun()
 
     # ── Add Player Section ────────────────────────────────────
     st.divider()
-    st.markdown("#### ➕ Agregar Jugador a la Escalera")
+    st.markdown("#### Agregar Jugador a la Escalera")
 
     existing_ids = RankingService.get_ladder_player_ids(cat_id)
     supabase = get_supabase_client()
-    all_players_resp = supabase.table("players").select("id, first_name, last_name").order("first_name").execute()
+    # Filter players by gender column (independent of tournament registrations)
+    gender_code = "M" if selected_cat_name == "Varonil" else "F"
+    all_players_resp = (
+        supabase.table("players")
+        .select("id, first_name, last_name")
+        .eq("gender", gender_code)
+        .order("first_name")
+        .execute()
+    )
     available = [p for p in (all_players_resp.data or []) if p["id"] not in existing_ids]
 
     if available:
@@ -206,9 +264,9 @@ with tab_ladder:
             insert_pos = st.number_input("Posición", min_value=1, max_value=max_pos, value=max_pos, key="add_pos")
         with add_cols[2]:
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("✅ AGREGAR", key="add_player_btn", use_container_width=True):
+            if st.button("AGREGAR", key="add_player_btn", use_container_width=True):
                 RankingService.add_player_to_ladder(cat_id, player_options[selected_player_name], insert_pos)
-                st.toast(f"✅ {selected_player_name} agregado en posición #{insert_pos}")
+                st.toast(f"{selected_player_name} agregado en posición #{insert_pos}")
                 st.rerun()
     else:
         st.caption("Todos los jugadores ya están en la escalera.")
@@ -218,7 +276,7 @@ with tab_ladder:
 # TAB 2: SUBCATEGORÍAS (Boundary Configuration)
 # ═══════════════════════════════════════════════════════════════
 with tab_subcat:
-    st.markdown("#### 🏷️ Rangos de Subcategoría")
+    st.markdown("#### Rangos de Subcategoría")
     st.caption("Define qué posiciones pertenecen a cada subcategoría.")
 
     subcategories = _fetch_subcategories()
@@ -257,9 +315,9 @@ with tab_subcat:
                     "position_end": pe,
                 })
 
-        if st.form_submit_button("💾 GUARDAR RANGOS", use_container_width=True):
+        if st.form_submit_button("GUARDAR RANGOS", use_container_width=True):
             RankingService.save_subcategory_ranges(cat_id, new_ranges)
-            st.toast("✅ Rangos de subcategoría actualizados")
+            st.toast("Rangos de subcategoría actualizados")
             st.rerun()
 
 
@@ -269,7 +327,7 @@ with tab_subcat:
 with tab_schedule:
     next_week_num, next_phase = RankingService.determine_next_phase(cat_id)
 
-    phase_label = "⚔️ CHALLENGE — ¡Hora de Subir!" if next_phase == "challenge" else "🛡️ DEFEND — Defiende tu Corona"
+    phase_label = "CHALLENGE — ¡Hora de Subir!" if next_phase == "challenge" else "DEFEND — Defiende tu Corona"
     phase_class = "phase-challenge" if next_phase == "challenge" else "phase-defend"
 
     st.markdown(f"""
@@ -295,7 +353,7 @@ with tab_schedule:
     next_sunday = next_tuesday + timedelta(days=5)
 
     with st.form("schedule_week_form"):
-        st.markdown("##### ⚙️ Configuración del Horario")
+        st.markdown("##### Configuración del Horario")
         d_cols = st.columns(2)
         with d_cols[0]:
             start_date = st.date_input("Fecha inicio (Martes)", value=next_tuesday, key="sched_start")
@@ -340,7 +398,7 @@ with tab_schedule:
             week = RankingService.create_week(cat_id, next_week_num, next_phase, config)
             if week:
                 count = RankingService.schedule_ranking_week(week["id"], pairings, week)
-                st.success(f"✅ Semana {next_week_num} creada — {count} partidos programados")
+                st.success(f"Semana {next_week_num} creada — {count} partidos programados")
 
                 # Show resting players
                 if resting:
@@ -360,8 +418,8 @@ with tab_schedule:
     weeks = RankingService.get_weeks(cat_id, limit=5)
     if weeks:
         for w in weeks:
-            phase_icon = "⚔️" if w["phase"] == "challenge" else "🛡️"
-            status = "✅ Completada" if w["is_completed"] else "🔄 En curso"
+            phase_icon = "C" if w["phase"] == "challenge" else "D"
+            status = "Completada" if w["is_completed"] else "En curso"
             st.markdown(
                 f"**{phase_icon} Semana {w['week_number']}** — "
                 f"{w['week_start_date']} → {w['week_end_date']} — {status}"
@@ -379,7 +437,7 @@ with tab_results:
         st.info("No hay semanas programadas. Crea una en la pestaña 'Programar Semana'.")
     else:
         week_options = {
-            f"Semana {w['week_number']} ({'⚔️' if w['phase']=='challenge' else '🛡️'} "
+            f"Semana {w['week_number']} ({'C' if w['phase']=='challenge' else 'D'} "
             f"{w['week_start_date']})": w["id"]
             for w in weeks
         }
@@ -396,83 +454,244 @@ with tab_results:
             st.markdown(f"**{completed}/{len(matches)}** partidos completados")
             st.progress(completed / len(matches) if matches else 0)
 
-            for m in matches:
-                defender = m.get("defender", {}) or {}
-                challenger = m.get("challenger", {}) or {}
-                d_name = f"{defender.get('first_name','')} {defender.get('last_name','')}"
-                c_name = f"{challenger.get('first_name','')} {challenger.get('last_name','')}"
-                d_pos = m["defender_position"]
-                c_pos = m["challenger_position"]
+            # ── Group matches by day ──────────────────────────
+            _DIAS_ES = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
+            _MESES_ES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                         'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
-                status_icon = "✅" if m["is_completed"] else "⏳"
-                sched = ""
-                if m.get("scheduled_date") and m.get("scheduled_time"):
-                    sched = f" · {m['scheduled_date']} {m['scheduled_time']} · Cancha {m.get('court_number','?')}"
+            def _fmt_date_es(d):
+                """Format date as 'Martes 5 de Mayo del 2026'."""
+                if isinstance(d, str):
+                    parts = d.split('-')
+                    from datetime import date as _d
+                    d = _d(int(parts[0]), int(parts[1]), int(parts[2]))
+                dia_nombre = _DIAS_ES[d.weekday()]
+                mes_nombre = _MESES_ES[d.month]
+                return f"{dia_nombre} {d.day} de {mes_nombre} del {d.year}"
 
-                st.markdown(f"""
-                <div class="ranking-card">
-                    <span style="font-size:0.75rem; color:rgba(255,255,255,0.4);">{status_icon}{sched}</span>
-                    <div style="display:flex; justify-content:center; align-items:center; gap:1rem; margin-top:0.5rem;">
-                        <span style="font-family:'Montserrat',sans-serif; font-weight:700;">
-                            #{d_pos} {d_name}
-                        </span>
-                        <span style="color:#CCFF00; font-weight:900; font-size:1.2rem;">VS</span>
-                        <span style="font-family:'Montserrat',sans-serif; font-weight:700;">
-                            #{c_pos} {c_name}
-                        </span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            def _match_date_key(m):
+                return m.get('scheduled_date') or '9999-99-99'
 
-                if not m["is_completed"]:
-                    with st.expander(f"📝 Capturar resultado — #{d_pos} vs #{c_pos}"):
-                        s_cols = st.columns(6)
-                        with s_cols[0]:
-                            s1d = st.number_input("S1 Def", min_value=0, max_value=7, value=0, key=f"s1d_{m['id']}")
-                        with s_cols[1]:
-                            s1c = st.number_input("S1 Ret", min_value=0, max_value=7, value=0, key=f"s1c_{m['id']}")
-                        with s_cols[2]:
-                            s2d = st.number_input("S2 Def", min_value=0, max_value=7, value=0, key=f"s2d_{m['id']}")
-                        with s_cols[3]:
-                            s2c = st.number_input("S2 Ret", min_value=0, max_value=7, value=0, key=f"s2c_{m['id']}")
-                        with s_cols[4]:
-                            s3d = st.number_input("S3 Def", min_value=0, max_value=10, value=0, key=f"s3d_{m['id']}")
-                        with s_cols[5]:
-                            s3c = st.number_input("S3 Ret", min_value=0, max_value=10, value=0, key=f"s3c_{m['id']}")
+            sorted_matches = sorted(matches, key=_match_date_key)
 
-                        # Determine winner
-                        sets_d = (1 if s1d > s1c else 0) + (1 if s2d > s2c else 0) + (1 if s3d > s3c else 0)
-                        sets_c = (1 if s1c > s1d else 0) + (1 if s2c > s2d else 0) + (1 if s3c > s3d else 0)
+            for day_key, day_matches_iter in groupby(sorted_matches, key=_match_date_key):
+                day_matches = list(day_matches_iter)
 
-                        winner_opts = [d_name, c_name]
-                        winner_default = 0 if sets_d >= sets_c else 1
-                        winner_label = st.radio("Ganador", winner_opts, index=winner_default, key=f"win_{m['id']}", horizontal=True)
-                        winner_id = m["defender_id"] if winner_label == d_name else m["challenger_id"]
+                # Day header
+                if day_key != '9999-99-99':
+                    day_label = _fmt_date_es(day_key)
+                else:
+                    day_label = "Sin fecha asignada"
 
-                        is_forfeit = st.checkbox("Walkover / Forfeit", key=f"forfeit_{m['id']}")
+                st.markdown(
+                    f'<p style="font-family:\'Montserrat\',sans-serif; font-weight:800; '
+                    f'font-size:0.85rem; letter-spacing:2px; color:rgba(255,255,255,0.55); '
+                    f'margin-top:1.5rem; margin-bottom:0.5rem; text-transform:uppercase;">'
+                    f'{day_label}</p>',
+                    unsafe_allow_html=True,
+                )
 
-                        if st.button("💾 GUARDAR RESULTADO", key=f"save_{m['id']}", use_container_width=True):
-                            scores = {
-                                "set1_defender": s1d, "set1_challenger": s1c,
-                                "set2_defender": s2d, "set2_challenger": s2c,
-                                "set3_defender": s3d if s3d > 0 or s3c > 0 else None,
-                                "set3_challenger": s3c if s3d > 0 or s3c > 0 else None,
-                            }
-                            result = RankingService.apply_match_result(
-                                m["id"], winner_id, scores, is_forfeit,
-                                entered_by=user.get("id")
-                            )
-                            if result.get("swapped"):
-                                st.toast(f"🔄 ¡{c_name} sube a #{d_pos}!")
-                            else:
-                                st.toast(f"✅ {d_name} defiende la posición #{d_pos}")
-                            st.rerun()
+                for m in day_matches:
+                    defender = m.get("defender", {}) or {}
+                    challenger = m.get("challenger", {}) or {}
+                    d_first = defender.get('first_name', '')
+                    d_last = (defender.get('last_name', '') or '').split()[0] if defender.get('last_name') else ''
+                    c_first = challenger.get('first_name', '')
+                    c_last = (challenger.get('last_name', '') or '').split()[0] if challenger.get('last_name') else ''
+                    d_name = f"{d_first} {d_last}".strip()
+                    c_name = f"{c_first} {c_last}".strip()
+                    d_pos = m["defender_position"]
+                    c_pos = m["challenger_position"]
+
+                    # Time + Court line
+                    time_court = ""
+                    if m.get("scheduled_time"):
+                        t_val = m["scheduled_time"]
+                        if isinstance(t_val, str):
+                            t_val = t_val[:5]
+                        court = f"Cancha {m.get('court_number', '?')}"
+                        time_court = f"{t_val} — {court}"
+
+                    status_icon = "●" if m["is_completed"] else "○"
+
+                    # ── Frosted glass match card ──────────────
+                    st.markdown(
+                        f'<div class="ranking-card">'
+                        f'<div style="font-size:0.7rem; color:rgba(255,255,255,0.4); margin-bottom:0.4rem;">'
+                        f'{status_icon} {time_court}</div>'
+                        f'<div style="display:flex; justify-content:center; align-items:center; gap:0.8rem;">'
+                        f'<span style="font-family:\'Montserrat\',sans-serif; font-weight:700; font-size:0.95rem;">'
+                        f'#{d_pos} {d_name}</span>'
+                        f'<span style="color:#CCFF00; font-weight:900; font-size:0.75rem; letter-spacing:2px;">VS</span>'
+                        f'<span style="font-family:\'Montserrat\',sans-serif; font-weight:700; font-size:0.95rem;">'
+                        f'#{c_pos} {c_name}</span>'
+                        f'</div></div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    if m["is_completed"]:
+                        # ── Completed: scorebug in expander ───────
+                        winner_id = m.get("winner_id")
+                        d_won = winner_id == m["defender_id"]
+                        c_won = winner_id == m["challenger_id"]
+                        d_row_cls = "sb-winner" if d_won else "sb-loser"
+                        c_row_cls = "sb-winner" if c_won else "sb-loser"
+
+                        sets = [
+                            (m.get('set1_defender'), m.get('set1_challenger')),
+                            (m.get('set2_defender'), m.get('set2_challenger')),
+                        ]
+                        if m.get('set3_defender') is not None:
+                            sets.append((m.get('set3_defender'), m.get('set3_challenger')))
+
+                        d_sets_html = ""
+                        c_sets_html = ""
+                        for ds, cs in sets:
+                            dw = "set-won" if ds is not None and cs is not None and ds > cs else ""
+                            cw = "set-won" if ds is not None and cs is not None and cs > ds else ""
+                            d_sets_html += f'<td class="sb-set {dw}">{ds}</td>'
+                            c_sets_html += f'<td class="sb-set {cw}">{cs}</td>'
+                        for _ in range(3 - len(sets)):
+                            d_sets_html += '<td class="sb-set"></td>'
+                            c_sets_html += '<td class="sb-set"></td>'
+
+                        scorebug_html = (
+                            f'<table class="admin-scorebug">'
+                            f'<thead><tr><th></th><th>S1</th><th>S2</th><th>S3</th></tr></thead>'
+                            f'<tr class="{d_row_cls}"><td class="sb-name">{d_name} <span class="sb-pos">{d_pos}</span></td>{d_sets_html}</tr>'
+                            f'<tr class="{c_row_cls}"><td class="sb-name">{c_name} <span class="sb-pos">{c_pos}</span></td>{c_sets_html}</tr>'
+                            f'</table>'
+                        )
+                        st.markdown(scorebug_html, unsafe_allow_html=True)
+
+                    else:
+                        # ── Pending: scorebug inside expander ─────
+                        with st.expander(f"Capturar resultado — #{d_pos} vs #{c_pos}"):
+                            # Scorebug row: Name | S1 | S2 | S3
+                            header_cols = st.columns([3, 1, 1, 1])
+                            with header_cols[0]:
+                                st.markdown(f"**{d_name}** `#{d_pos}`")
+                            with header_cols[1]:
+                                s1d = st.number_input("S1", min_value=0, max_value=7, value=0, key=f"s1d_{m['id']}", label_visibility="collapsed")
+                            with header_cols[2]:
+                                s2d = st.number_input("S2", min_value=0, max_value=7, value=0, key=f"s2d_{m['id']}", label_visibility="collapsed")
+                            with header_cols[3]:
+                                s3d = st.number_input("S3", min_value=0, max_value=10, value=0, key=f"s3d_{m['id']}", label_visibility="collapsed")
+
+                            row2_cols = st.columns([3, 1, 1, 1])
+                            with row2_cols[0]:
+                                st.markdown(f"**{c_name}** `#{c_pos}`")
+                            with row2_cols[1]:
+                                s1c = st.number_input("S1", min_value=0, max_value=7, value=0, key=f"s1c_{m['id']}", label_visibility="collapsed")
+                            with row2_cols[2]:
+                                s2c = st.number_input("S2", min_value=0, max_value=7, value=0, key=f"s2c_{m['id']}", label_visibility="collapsed")
+                            with row2_cols[3]:
+                                s3c = st.number_input("S3", min_value=0, max_value=10, value=0, key=f"s3c_{m['id']}", label_visibility="collapsed")
+
+                            # Auto-detect winner
+                            sets_d = (1 if s1d > s1c else 0) + (1 if s2d > s2c else 0) + (1 if s3d > s3c else 0)
+                            sets_c = (1 if s1c > s1d else 0) + (1 if s2c > s2d else 0) + (1 if s3c > s3d else 0)
+
+                            is_forfeit = st.checkbox("Walkover / Forfeit", key=f"forfeit_{m['id']}")
+
+                            winner_id = m["defender_id"] if sets_d >= sets_c else m["challenger_id"]
+
+                            if st.button("GUARDAR", key=f"save_{m['id']}", use_container_width=True):
+                                scores = {
+                                    "set1_defender": s1d, "set1_challenger": s1c,
+                                    "set2_defender": s2d, "set2_challenger": s2c,
+                                    "set3_defender": s3d if s3d > 0 or s3c > 0 else None,
+                                    "set3_challenger": s3c if s3d > 0 or s3c > 0 else None,
+                                }
+                                result = RankingService.apply_match_result(
+                                    m["id"], winner_id, scores, is_forfeit,
+                                    entered_by=user.get("id")
+                                )
+                                if result.get("swapped"):
+                                    st.toast(f"¡{c_name} sube a #{d_pos}!")
+                                else:
+                                    st.toast(f"{d_name} defiende la posición #{d_pos}")
+                                st.rerun()
 
         # ── Close week button ─────────────────────────────────
         if not selected_week.get("is_completed"):
             st.divider()
-            st.warning("⚠️ Al cerrar la semana, los partidos sin resultado se marcarán como forfeit (6-0 6-0) a favor del defensor.")
-            if st.button("🔒 CERRAR SEMANA", key="close_week_btn", use_container_width=True):
+            st.warning("Al cerrar la semana, los partidos sin resultado se marcarán como forfeit (6-0 6-0) a favor del defensor.")
+            if st.button("CERRAR SEMANA", key="close_week_btn", use_container_width=True):
                 RankingService.complete_week(selected_week_id)
-                st.toast("✅ Semana cerrada exitosamente")
+                st.toast("Semana cerrada exitosamente")
                 st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# TERMINAR RANKING — End Season Dialog
+# ═══════════════════════════════════════════════════════════════
+
+@st.dialog("TERMINAR RANKING")
+def show_end_ranking_dialog(cat_id, cat_name, user_id):
+    """Dialog to archive and/or reset the ranking for a category."""
+
+    st.markdown(f"### Terminar Ranking — {cat_name}")
+
+    st.warning(
+        f"Esta acción eliminará **toda la escalera, semanas y partidos** "
+        f"de **{cat_name}**. Esta acción no se puede deshacer."
+    )
+
+    st.markdown("---")
+
+    save_history = st.toggle("Guardar historial antes de terminar", value=True)
+
+    season_name = ""
+    if save_history:
+        from datetime import datetime
+        _meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+        now = datetime.now()
+        default_name = f"Temporada {_meses[now.month]} {now.year}"
+        season_name = st.text_input(
+            "Nombre de la temporada",
+            value=default_name,
+            placeholder="Ej. Temporada Mayo 2026",
+        )
+
+    st.markdown("---")
+    st.markdown(
+        f"Escribe **{cat_name}** para confirmar:",
+    )
+    confirm = st.text_input("Confirmación", placeholder=cat_name, label_visibility="collapsed")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("CANCELAR", use_container_width=True):
+            st.rerun()
+    with c2:
+        is_disabled = confirm != cat_name
+        btn_label = "GUARDAR Y TERMINAR" if save_history else "TERMINAR SIN GUARDAR"
+        if st.button(btn_label, type="primary", use_container_width=True, disabled=is_disabled):
+            with st.spinner("Procesando..."):
+                if save_history:
+                    if not season_name.strip():
+                        st.error("Escribe un nombre para la temporada.")
+                        return
+                    season = RankingService.archive_season(cat_id, season_name.strip(), ended_by=user_id)
+                    if season:
+                        st.toast(f"Temporada '{season_name}' archivada correctamente")
+                    else:
+                        st.error("Error al archivar la temporada.")
+                        return
+
+                success = RankingService.reset_ranking(cat_id)
+                if success:
+                    st.toast(f"Ranking de {cat_name} reiniciado")
+                    st.rerun()
+                else:
+                    st.error("Error al reiniciar el ranking.")
+
+
+# ── Terminar Ranking Button (below tabs, always visible) ──────
+st.divider()
+if st.button("TERMINAR RANKING", key="end_ranking_btn", use_container_width=True):
+    show_end_ranking_dialog(cat_id, selected_cat_name, user.get("id"))
