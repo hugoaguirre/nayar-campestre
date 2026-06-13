@@ -15,16 +15,11 @@ def apply_wimbledon_ui():
             font-family: 'Inter', sans-serif;
         }
         
-        /* Hide Default Streamlit Elements (but preserve the header containing the Sidebar toggle) */
-        #MainMenu {visibility: hidden;}
+        /* Hides the "Made with Streamlit" footer banner */
         footer {visibility: hidden;}
         
-        /* Make header transparent instead of completely hidden to keep the expand/collapse button */
-        header[data-testid="stHeader"] {
-            background-color: transparent !important;
-            background-image: none !important;
-            border: none !important;
-        }
+        /* Hides the top app toolbar containing the Fork button */
+        header {visibility: hidden;}
 
         /* Hide the Deploy button entirely */
         [data-testid="stAppDeploy"] {

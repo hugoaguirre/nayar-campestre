@@ -285,28 +285,44 @@ with tab_subcat:
 
     # Filter to relevant subcats (skip kids categories for ranking)
     ranking_subcats = [s for s in subcategories if s["name"] not in ("Mini-Tenis", "8-10 años")]
+    
+    # Sort them according to hierarchy: AA, A, B+, B, C, D
+    _order = {"AA": 0, "A": 1, "B+": 2, "B": 3, "C": 4, "D": 5}
+    ranking_subcats.sort(key=lambda s: _order.get(s["name"], 99))
 
-    with st.form("subcat_ranges_form"):
+    with st.form("subcat_ranges_form", border=True):
+        # Encabezados
+        h_cols = st.columns([1.5, 1.5, 1.5], vertical_alignment="bottom")
+        with h_cols[0]:
+            st.markdown("<p style='font-family:Montserrat,sans-serif; font-size:0.8rem; color:rgba(255,255,255,0.6); letter-spacing:1px; margin-bottom:0;'>SUBCATEGORÍA</p>", unsafe_allow_html=True)
+        with h_cols[1]:
+            st.markdown("<p style='font-family:Montserrat,sans-serif; font-size:0.8rem; color:rgba(255,255,255,0.6); letter-spacing:1px; margin-bottom:0;'>DESDE (Posición)</p>", unsafe_allow_html=True)
+        with h_cols[2]:
+            st.markdown("<p style='font-family:Montserrat,sans-serif; font-size:0.8rem; color:rgba(255,255,255,0.6); letter-spacing:1px; margin-bottom:0;'>HASTA (Posición)</p>", unsafe_allow_html=True)
+            
+        st.markdown("<hr style='margin-top:0.5rem; margin-bottom:1rem; border-color:rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+
         new_ranges = []
         for sc in ranking_subcats:
             existing = range_map.get(sc["id"], {})
-            cols = st.columns([2, 1, 1])
+            cols = st.columns([1.5, 1.5, 1.5], vertical_alignment="center")
             with cols[0]:
                 pill_class = _subcat_css_class(sc["name"])
                 st.markdown(
-                    f'<span class="subcat-pill {pill_class}" style="font-size:0.85rem; padding:4px 14px;">'
-                    f'{sc["name"]}</span>',
+                    f'<div style="display:flex; align-items:center; height:100%; padding-bottom:1rem;">'
+                    f'<span class="subcat-pill {pill_class}" style="font-size:0.9rem; padding:6px 18px;">'
+                    f'{sc["name"]}</span></div>',
                     unsafe_allow_html=True,
                 )
             with cols[1]:
                 ps = st.number_input(
-                    f"Desde", min_value=0, value=existing.get("position_start", 0),
-                    key=f"sc_start_{sc['id']}"
+                    f"Desde {sc['name']}", min_value=0, value=existing.get("position_start", 0),
+                    key=f"sc_start_{sc['id']}", label_visibility="collapsed"
                 )
             with cols[2]:
                 pe = st.number_input(
-                    f"Hasta", min_value=0, value=existing.get("position_end", 0),
-                    key=f"sc_end_{sc['id']}"
+                    f"Hasta {sc['name']}", min_value=0, value=existing.get("position_end", 0),
+                    key=f"sc_end_{sc['id']}", label_visibility="collapsed"
                 )
             if ps > 0 and pe > 0:
                 new_ranges.append({
@@ -315,6 +331,7 @@ with tab_subcat:
                     "position_end": pe,
                 })
 
+        st.markdown("<br>", unsafe_allow_html=True)
         if st.form_submit_button("GUARDAR RANGOS", use_container_width=True):
             RankingService.save_subcategory_ranges(cat_id, new_ranges)
             st.toast("Rangos de subcategoría actualizados")
