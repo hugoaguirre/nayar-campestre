@@ -112,7 +112,7 @@ def upsert_player_to_supabase(player_data, tournament_name=None):
             p_payload = {
                 "first_name": player_data['Nombre'],
                 "last_name": player_data['Apellido'],
-                "phone": player_data['Celular'] if player_data['Celular'] else None
+                "phone": player_data.get('Celular', '')
             }
             # Include gender if provided
             if player_data.get('Género'):

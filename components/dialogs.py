@@ -269,9 +269,19 @@ def show_add_new_socio_dialog():
 
     gender_map = {"Masculino": "M", "Femenino": "F"}
 
+    import streamlit.components.v1 as components
+    components.html(
+        """<script>
+            const doc = window.parent.document;
+            setTimeout(() => { if (doc.activeElement) { doc.activeElement.blur(); } }, 50);
+            setTimeout(() => { if (doc.activeElement) { doc.activeElement.blur(); } }, 150);
+        </script>""",
+        height=0,
+    )
+
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("CREAR SOCIO", type="primary", use_container_width=True):
-        if f_name and f_last and f_phone:
+        if f_name and f_last:
             from utils.supabase_data import upsert_player_to_supabase
 
             # Create a registration-free payload for identity only
@@ -353,7 +363,7 @@ def show_add_player_dialog():
             save_clicked = True
 
     if save_clicked:
-        if f_name and f_last and f_phone:
+        if f_name and f_last:
             new_player = pd.DataFrame(
                 [
                     {

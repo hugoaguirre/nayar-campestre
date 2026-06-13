@@ -5,7 +5,7 @@ import math
 
 def get_client() -> Client:
     url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
+    key = st.secrets["SUPABASE_SERVICE_KEY"]
     return create_client(url, key)
 
 def run_migration():
@@ -13,7 +13,7 @@ def run_migration():
     supabase = get_client()
     
     # Read CSV
-    df = pd.read_csv("jugadores_registrados_200.csv")
+    df = pd.read_csv("nayar-campestre-prod.csv")
     
     # 1. Insert Categories
     categories = df['Categoría'].dropna().unique().tolist()
@@ -55,7 +55,7 @@ def run_migration():
         fname = str(row['Nombre']).strip()
         lname = str(row['Apellido']).strip()
         phone = str(row.get('Celular', '')).strip()
-        if phone == "nan": phone = None
+        if not phone or phone == "nan": phone = None
 
         cat_id = cat_map.get(row['Categoría'])
         scat_id = sub_map.get(row['Subcategoría'])
@@ -73,9 +73,7 @@ def run_migration():
             data = {
                 "first_name": fname,
                 "last_name": lname,
-                "phone": phone,
-                "category_id": cat_id,
-                "subcategory_id": scat_id
+                "phone": phone
             }
             ins = supabase.table('players').insert(data).execute()
             p_id = ins.data[0]['id']
