@@ -188,6 +188,74 @@ tab_ladder, tab_subcat, tab_schedule, tab_results = st.tabs([
 
 
 # ═══════════════════════════════════════════════════════════════
+# TERMINAR RANKING — End Season Dialog
+# ═══════════════════════════════════════════════════════════════
+
+@st.dialog("TERMINAR RANKING")
+def show_end_ranking_dialog(cat_id, cat_name, user_id):
+    """Dialog to archive and/or reset the ranking for a category."""
+
+    st.markdown(f"### Terminar Ranking — {cat_name}")
+
+    st.warning(
+        f"Esta acción eliminará **toda la escalera, semanas y partidos** "
+        f"de **{cat_name}**. Esta acción no se puede deshacer."
+    )
+
+    st.markdown("---")
+
+    save_history = st.toggle("Guardar historial antes de terminar", value=True)
+
+    season_name = ""
+    if save_history:
+        from datetime import datetime
+        _meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+        now = datetime.now()
+        default_name = f"Temporada {_meses[now.month]} {now.year}"
+        season_name = st.text_input(
+            "Nombre de la temporada",
+            value=default_name,
+            placeholder="Ej. Temporada Mayo 2026",
+        )
+
+    st.markdown("---")
+    st.markdown(
+        f"Escribe **{cat_name}** para confirmar:",
+    )
+    confirm = st.text_input("Confirmación", placeholder=cat_name, label_visibility="collapsed")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("CANCELAR", use_container_width=True):
+            st.rerun()
+    with c2:
+        is_disabled = confirm != cat_name
+        btn_label = "GUARDAR Y TERMINAR" if save_history else "TERMINAR SIN GUARDAR"
+        if st.button(btn_label, type="primary", use_container_width=True, disabled=is_disabled):
+            with st.spinner("Procesando..."):
+                if save_history:
+                    if not season_name.strip():
+                        st.error("Escribe un nombre para la temporada.")
+                        return
+                    season = RankingService.archive_season(cat_id, season_name.strip(), ended_by=user_id)
+                    if season:
+                        st.toast(f"Temporada '{season_name}' archivada correctamente")
+                    else:
+                        st.error("Error al archivar la temporada.")
+                        return
+
+                success = RankingService.reset_ranking(cat_id)
+                if success:
+                    st.toast(f"Ranking de {cat_name} reiniciado")
+                    st.rerun()
+                else:
+                    st.error("Error al reiniciar el ranking.")
+
+
+# ═══════════════════════════════════════════════════════════════
 # TAB 1: ESCALERA (Ladder Management)
 # ═══════════════════════════════════════════════════════════════
 with tab_ladder:
@@ -271,6 +339,55 @@ with tab_ladder:
     else:
         st.caption("Todos los jugadores ya están en la escalera.")
 
+    # ── Zona de Peligro (Terminar Ranking) ────────────────────
+    st.divider()
+    st.markdown("""
+        <style>
+        .danger-zone-card {
+            background-color: rgba(255, 60, 60, 0.08);
+            border: 1px solid rgba(255, 60, 60, 0.3);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .danger-zone-card h4 {
+            color: #ff4d4d;
+            margin-top: 0;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+        }
+        .danger-zone-card p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
+        
+        /* Target the button immediately following the marker using :has() */
+        div.element-container:has(#danger-zone-marker) + div.element-container button {
+            background-color: rgba(255, 60, 60, 0.1) !important;
+            border: 1px solid rgba(255, 60, 60, 0.5) !important;
+            color: #ff4d4d !important;
+        }
+        div.element-container:has(#danger-zone-marker) + div.element-container button:hover {
+            background-color: rgba(255, 60, 60, 0.3) !important;
+            border: 1px solid #ff4d4d !important;
+            color: white !important;
+        }
+        </style>
+        <div class="danger-zone-card">
+            <h4>⚠️ Zona de Peligro</h4>
+            <p>
+                Al terminar el ranking, se archivará la temporada actual y se <b>eliminarán permanentemente</b>
+                todos los partidos, semanas y la escalera actual. Esta acción no se puede deshacer.
+            </p>
+        </div>
+        <div id="danger-zone-marker"></div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("TERMINAR RANKING", key="end_ranking_btn", use_container_width=True):
+        show_end_ranking_dialog(cat_id, selected_cat_name, user.get("id"))
+
 
 # ═══════════════════════════════════════════════════════════════
 # TAB 2: SUBCATEGORÍAS (Boundary Configuration)
@@ -341,6 +458,45 @@ with tab_subcat:
 # ═══════════════════════════════════════════════════════════════
 # TAB 3: PROGRAMAR SEMANA (Weekly Scheduling)
 # ═══════════════════════════════════════════════════════════════
+
+@st.dialog("Confirmar Generación de Horario")
+def confirm_generate_dialog(cat_id, week_num, phase, config):
+    """Confirmation dialog before committing a new week to the database."""
+    phase_label = "CHALLENGE" if phase == "challenge" else "DEFEND"
+    st.markdown(
+        f"Estás a punto de crear **Semana {week_num}** ({phase_label})."
+    )
+    st.warning(
+        "Si continúas darás inicio a la semana y esta operación no es reversible "
+        "una vez que se registren resultados."
+    )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("CANCELAR", use_container_width=True):
+            st.rerun()
+    with c2:
+        if st.button("CONFIRMAR", type="primary", use_container_width=True):
+            ladder = RankingService.get_current_ladder(cat_id)
+            pairings, resting = RankingService.generate_pairings(ladder, phase)
+
+            week = RankingService.create_week(cat_id, week_num, phase, config)
+            if week:
+                count = RankingService.schedule_ranking_week(week["id"], pairings, week)
+                st.toast(f"Semana {week_num} creada — {count} partidos programados")
+
+                if resting:
+                    resting_names = []
+                    for entry in ladder:
+                        if entry["player_id"] in resting:
+                            resting_names.append(f"{entry['first_name']} {entry['last_name']}")
+                    st.toast(f"Descansan: {', '.join(resting_names)}")
+
+                st.rerun()
+            else:
+                st.error("Error al crear la semana.")
+
+
 with tab_schedule:
     next_week_num, next_phase = RankingService.determine_next_phase(cat_id)
 
@@ -369,76 +525,118 @@ with tab_schedule:
     next_tuesday = today + timedelta(days=days_until_tuesday)
     next_sunday = next_tuesday + timedelta(days=5)
 
-    with st.form("schedule_week_form"):
-        st.markdown("##### Configuración del Horario")
-        d_cols = st.columns(2)
-        with d_cols[0]:
-            start_date = st.date_input("Fecha inicio (Martes)", value=next_tuesday, key="sched_start")
-        with d_cols[1]:
-            end_date = st.date_input("Fecha fin (Domingo)", value=next_sunday, key="sched_end")
+    # ── Schedule configuration (non-form for dual button support) ─
+    st.markdown("##### Configuración del Horario")
+    d_cols = st.columns(2)
+    with d_cols[0]:
+        start_date = st.date_input("Fecha inicio (Martes)", value=next_tuesday, key="sched_start")
+    with d_cols[1]:
+        end_date = st.date_input("Fecha fin (Domingo)", value=next_sunday, key="sched_end")
 
-        st.markdown("**Horarios entre semana** (Martes–Viernes)")
-        wd_cols = st.columns(2)
-        with wd_cols[0]:
-            wd_first = st.time_input("Primer juego", value=time(18, 0), key="wd_first")
-        with wd_cols[1]:
-            wd_last = st.time_input("Último juego", value=time(19, 30), key="wd_last")
+    st.markdown("**Horarios entre semana** (Martes–Viernes)")
+    wd_cols = st.columns(2)
+    with wd_cols[0]:
+        wd_first = st.time_input("Primer juego", value=time(18, 0), key="wd_first")
+    with wd_cols[1]:
+        wd_last = st.time_input("Último juego", value=time(19, 30), key="wd_last")
 
-        st.markdown("**Horarios fin de semana** (Sábado–Domingo)")
-        we_cols = st.columns(2)
-        with we_cols[0]:
-            we_first = st.time_input("Primer juego", value=time(10, 0), key="we_first")
-        with we_cols[1]:
-            we_last = st.time_input("Último juego", value=time(19, 0), key="we_last")
+    st.markdown("**Horarios fin de semana** (Sábado–Domingo)")
+    we_cols = st.columns(2)
+    with we_cols[0]:
+        we_first = st.time_input("Primer juego", value=time(10, 0), key="we_first")
+    with we_cols[1]:
+        we_last = st.time_input("Último juego", value=time(19, 0), key="we_last")
 
-        num_courts = st.number_input("Canchas disponibles", min_value=1, max_value=12, value=6, key="sched_courts")
+    num_courts = st.number_input("Canchas disponibles", min_value=1, max_value=12, value=6, key="sched_courts")
 
-        submitted = st.form_submit_button("🚀 GENERAR HORARIO", use_container_width=True)
+    # ── Build config dict (reused by both preview and generate) ─
+    _sched_config = {
+        "weekday_first_game": wd_first.strftime("%H:%M"),
+        "weekday_last_game": wd_last.strftime("%H:%M"),
+        "weekend_first_game": we_first.strftime("%H:%M"),
+        "weekend_last_game": we_last.strftime("%H:%M"),
+        "num_courts": num_courts,
+        "week_start_date": start_date,
+        "week_end_date": end_date,
+    }
 
-    if submitted:
-        ladder = RankingService.get_current_ladder(cat_id)
-        if len(ladder) < 2:
-            st.error("Se necesitan al menos 2 jugadores en la escalera.")
-        else:
-            pairings, resting = RankingService.generate_pairings(ladder, next_phase)
+    # ── Action buttons ────────────────────────────────────────
+    # Pre-compute preview PDF (lightweight: in-memory pairings + slot grid)
+    ladder = RankingService.get_current_ladder(cat_id)
+    _has_enough_players = len(ladder) >= 2
 
-            config = {
-                "weekday_first_game": wd_first.strftime("%H:%M"),
-                "weekday_last_game": wd_last.strftime("%H:%M"),
-                "weekend_first_game": we_first.strftime("%H:%M"),
-                "weekend_last_game": we_last.strftime("%H:%M"),
-                "num_courts": num_courts,
-                "week_start_date": start_date,
-                "week_end_date": end_date,
-            }
+    btn_cols = st.columns(2)
 
-            week = RankingService.create_week(cat_id, next_week_num, next_phase, config)
-            if week:
-                count = RankingService.schedule_ranking_week(week["id"], pairings, week)
-                st.success(f"Semana {next_week_num} creada — {count} partidos programados")
+    with btn_cols[0]:
+        if _has_enough_players:
+            preview_matches, resting = RankingService.preview_schedule(
+                ladder, next_phase, _sched_config
+            )
+            if preview_matches:
+                from utils.pdf_export import generate_ranking_week_pdf
+                draft_week = {"week_number": next_week_num, "phase": next_phase}
+                pdf_bytes = generate_ranking_week_pdf(
+                    preview_matches, draft_week, selected_cat_name, is_draft=True
+                )
+                phase_tag = "C" if next_phase == "challenge" else "D"
+                preview_file = f"borrador_sem{next_week_num}_{phase_tag}_{selected_cat_name.lower()}.pdf"
+                st.download_button(
+                    "Previsualizar Horario",
+                    data=pdf_bytes,
+                    file_name=preview_file,
+                    mime="application/pdf",
+                    key="preview_pdf_dl",
+                    use_container_width=True,
+                )
 
                 # Show resting players
                 if resting:
-                    resting_names = []
-                    for entry in ladder:
-                        if entry["player_id"] in resting:
-                            resting_names.append(f"{entry['first_name']} {entry['last_name']}")
-                    st.info(f"😴 Descansan esta semana: {', '.join(resting_names)}")
+                    resting_names = [
+                        f"{e['first_name']} {e['last_name']}"
+                        for e in ladder if e["player_id"] in resting
+                    ]
+                    if resting_names:
+                        st.info(f"😴 Descansan esta semana: {', '.join(resting_names)}")
+        else:
+            st.button("Previsualizar Horario", use_container_width=True, disabled=True)
 
-                st.rerun()
-            else:
-                st.error("Error al crear la semana.")
+    with btn_cols[1]:
+        generate_clicked = st.button("🚀 GENERAR HORARIO", type="primary", use_container_width=True)
+
+    # ── Generate logic (opens confirmation dialog) ────────────
+    if generate_clicked:
+        if not _has_enough_players:
+            st.error("Se necesitan al menos 2 jugadores en la escalera.")
+        else:
+            confirm_generate_dialog(cat_id, next_week_num, next_phase, _sched_config)
 
     # ── Show existing weeks ───────────────────────────────────
     st.divider()
     st.markdown("##### 📋 Semanas Anteriores")
     weeks = RankingService.get_weeks(cat_id, limit=5)
     if weeks:
+        # Determine which is the latest (most recent) week
+        latest_week_id = weeks[0]["id"] if weeks else None
+
         for w in weeks:
             phase_icon = "C" if w["phase"] == "challenge" else "D"
             status = "Completada" if w["is_completed"] else "En curso"
+            is_latest = w["id"] == latest_week_id
+            has_completed_matches = False
 
-            w_cols = st.columns([4, 1.5])
+            week_matches = RankingService.get_week_matches(w["id"])
+            if week_matches:
+                has_completed_matches = any(m["is_completed"] for m in week_matches)
+
+            # Deletable = latest week + no completed matches
+            can_delete = is_latest and not has_completed_matches
+
+            # Layout: info | print | delete (if allowed)
+            if can_delete:
+                w_cols = st.columns([4, 1.2, 1.2])
+            else:
+                w_cols = st.columns([4, 1.5])
+
             with w_cols[0]:
                 st.markdown(
                     f"<p style='font-family:Montserrat,sans-serif; font-size:0.9rem; margin:0.4rem 0;'>"
@@ -447,7 +645,6 @@ with tab_schedule:
                     unsafe_allow_html=True,
                 )
             with w_cols[1]:
-                week_matches = RankingService.get_week_matches(w["id"])
                 if week_matches:
                     from utils.pdf_export import generate_ranking_week_pdf
                     pdf_bytes = generate_ranking_week_pdf(
@@ -463,6 +660,12 @@ with tab_schedule:
                         key=f"pdf_dl_{w['id']}",
                         use_container_width=True,
                     )
+            if can_delete:
+                with w_cols[2]:
+                    if st.button("Eliminar", key=f"del_wk_{w['id']}", use_container_width=True):
+                        RankingService.delete_week(w["id"])
+                        st.toast(f"Semana {w['week_number']} eliminada")
+                        st.rerun()
     else:
         st.caption("No hay semanas registradas.")
 
@@ -662,75 +865,3 @@ with tab_results:
                 st.rerun()
 
 
-# ═══════════════════════════════════════════════════════════════
-# TERMINAR RANKING — End Season Dialog
-# ═══════════════════════════════════════════════════════════════
-
-@st.dialog("TERMINAR RANKING")
-def show_end_ranking_dialog(cat_id, cat_name, user_id):
-    """Dialog to archive and/or reset the ranking for a category."""
-
-    st.markdown(f"### Terminar Ranking — {cat_name}")
-
-    st.warning(
-        f"Esta acción eliminará **toda la escalera, semanas y partidos** "
-        f"de **{cat_name}**. Esta acción no se puede deshacer."
-    )
-
-    st.markdown("---")
-
-    save_history = st.toggle("Guardar historial antes de terminar", value=True)
-
-    season_name = ""
-    if save_history:
-        from datetime import datetime
-        _meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio',
-                  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-        now = datetime.now()
-        default_name = f"Temporada {_meses[now.month]} {now.year}"
-        season_name = st.text_input(
-            "Nombre de la temporada",
-            value=default_name,
-            placeholder="Ej. Temporada Mayo 2026",
-        )
-
-    st.markdown("---")
-    st.markdown(
-        f"Escribe **{cat_name}** para confirmar:",
-    )
-    confirm = st.text_input("Confirmación", placeholder=cat_name, label_visibility="collapsed")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("CANCELAR", use_container_width=True):
-            st.rerun()
-    with c2:
-        is_disabled = confirm != cat_name
-        btn_label = "GUARDAR Y TERMINAR" if save_history else "TERMINAR SIN GUARDAR"
-        if st.button(btn_label, type="primary", use_container_width=True, disabled=is_disabled):
-            with st.spinner("Procesando..."):
-                if save_history:
-                    if not season_name.strip():
-                        st.error("Escribe un nombre para la temporada.")
-                        return
-                    season = RankingService.archive_season(cat_id, season_name.strip(), ended_by=user_id)
-                    if season:
-                        st.toast(f"Temporada '{season_name}' archivada correctamente")
-                    else:
-                        st.error("Error al archivar la temporada.")
-                        return
-
-                success = RankingService.reset_ranking(cat_id)
-                if success:
-                    st.toast(f"Ranking de {cat_name} reiniciado")
-                    st.rerun()
-                else:
-                    st.error("Error al reiniciar el ranking.")
-
-
-# ── Terminar Ranking Button (below tabs, always visible) ──────
-st.divider()
-if st.button("TERMINAR RANKING", key="end_ranking_btn", use_container_width=True):
-    show_end_ranking_dialog(cat_id, selected_cat_name, user.get("id"))

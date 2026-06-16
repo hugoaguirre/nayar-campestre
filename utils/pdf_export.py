@@ -118,6 +118,16 @@ def _build_styles():
         textColor=_SET_PLACEHOLDER_COLOR,
     )
 
+    set_score = ParagraphStyle(
+        "SetScore",
+        parent=cell,
+        fontSize=10,
+        leading=13,
+        alignment=TA_CENTER,
+        textColor=colors.black,
+        fontName="Helvetica-Bold",
+    )
+
     return {
         "title": title,
         "subtitle": subtitle,
@@ -126,6 +136,7 @@ def _build_styles():
         "cell_center": cell_center,
         "cell_bold": cell_bold,
         "set_cell": set_cell,
+        "set_score": set_score,
     }
 
 
@@ -163,9 +174,23 @@ _TABLE_STYLE = TableStyle([
 ])
 
 
+# ── Watermark callback ────────────────────────────────────────
+
+def _draw_draft_watermark(canvas, doc):
+    """Draw a diagonal 'BORRADOR' watermark across the page."""
+    canvas.saveState()
+    canvas.setFont("Helvetica-Bold", 54)
+    canvas.setFillColor(colors.Color(0, 0, 0, alpha=0.07))
+    w, h = doc.pagesize
+    canvas.translate(w / 2, h / 2)
+    canvas.rotate(35)
+    canvas.drawCentredString(0, 0, "B O R R A D O R")
+    canvas.restoreState()
+
+
 # ── Public API ────────────────────────────────────────────────
 
-def generate_ranking_week_pdf(matches, week_data, category_name):
+def generate_ranking_week_pdf(matches, week_data, category_name, is_draft=False):
     """
     Generate a printable PDF for a ranking week's scheduled matches.
 
@@ -173,6 +198,7 @@ def generate_ranking_week_pdf(matches, week_data, category_name):
         matches:       list of match dicts (from RankingService.get_week_matches).
         week_data:     dict with week_number, phase, week_start_date, etc.
         category_name: "Varonil" or "Femenil".
+        is_draft:      if True, renders a diagonal "BORRADOR" watermark.
 
     Returns:
         bytes — PDF content ready for st.download_button.
@@ -267,15 +293,33 @@ def generate_ranking_week_pdf(matches, week_data, category_name):
 
             court = str(m.get("court_number", "—"))
 
+            # ── Score cells: real values if completed, placeholders if not ─
+            is_completed = m.get("is_completed", False)
+            winner_id = m.get("winner_id")
+
+            def _set_cell(d_val, c_val):
+                """Return a formatted 'D:C' score Paragraph or a placeholder."""
+                if is_completed and d_val is not None and c_val is not None:
+                    return Paragraph(f"{d_val}:{c_val}", S["set_score"])
+                return Paragraph("___:___", S["set_cell"])
+
+            s1 = _set_cell(m.get("set1_defender"), m.get("set1_challenger"))
+            s2 = _set_cell(m.get("set2_defender"), m.get("set2_challenger"))
+            # Set 3 only if it was played
+            s3_d, s3_c = m.get("set3_defender"), m.get("set3_challenger")
+            s3 = _set_cell(s3_d, s3_c) if (s3_d is not None or not is_completed) else Paragraph("—", S["cell_center"])
+
+            # Mark winner with a ✓ indicator
+            d_winner_mark = " ✓" if (is_completed and winner_id == m.get("defender_id")) else ""
+            c_winner_mark = " ✓" if (is_completed and winner_id == m.get("challenger_id")) else ""
+
             row = [
                 Paragraph(str(time_val), S["cell_center"]),
                 Paragraph(court, S["cell_center"]),
-                Paragraph(d_label, S["cell"]),
+                Paragraph(d_label + d_winner_mark, S["cell_bold"] if d_winner_mark else S["cell"]),
                 Paragraph("vs", S["cell_center"]),
-                Paragraph(c_label, S["cell"]),
-                Paragraph("___:___", S["set_cell"]),
-                Paragraph("___:___", S["set_cell"]),
-                Paragraph("___:___", S["set_cell"]),
+                Paragraph(c_label + c_winner_mark, S["cell_bold"] if c_winner_mark else S["cell"]),
+                s1, s2, s3,
             ]
             table_data.append(row)
 
@@ -285,6 +329,13 @@ def generate_ranking_week_pdf(matches, week_data, category_name):
         story.append(Spacer(1, 12))
 
     # ── Build PDF ─────────────────────────────────────────────
-    doc.build(story)
+    if is_draft:
+        doc.build(
+            story,
+            onFirstPage=_draw_draft_watermark,
+            onLaterPages=_draw_draft_watermark,
+        )
+    else:
+        doc.build(story)
     buf.seek(0)
     return buf.getvalue()

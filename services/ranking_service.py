@@ -390,6 +390,130 @@ class RankingService:
 
         return len(matches_to_insert)
 
+    @staticmethod
+    def preview_schedule(ladder, phase, config):
+        """
+        Build a preview of the scheduled matches WITHOUT writing to the DB.
+
+        Uses the same pairing + slot-building logic as the real scheduler,
+        but returns in-memory match dicts ready for PDF generation.
+
+        Args:
+            ladder: ordered ladder list (from get_current_ladder).
+            phase:  'challenge' or 'defend'.
+            config: dict with weekday_first_game, weekday_last_game,
+                    weekend_first_game, weekend_last_game,
+                    num_courts, week_start_date, week_end_date.
+
+        Returns:
+            (preview_matches, resting_ids)
+            preview_matches: list of dicts matching get_week_matches() shape.
+            resting_ids: list of player_ids who rest this week.
+        """
+        pairings, resting = RankingService.generate_pairings(ladder, phase)
+
+        # Parse time configs
+        def parse_time(t):
+            if isinstance(t, time):
+                return t
+            if isinstance(t, str):
+                parts = t.split(":")
+                return time(int(parts[0]), int(parts[1]))
+            return t
+
+        wd_first = parse_time(config["weekday_first_game"])
+        wd_last = parse_time(config["weekday_last_game"])
+        we_first = parse_time(config["weekend_first_game"])
+        we_last = parse_time(config["weekend_last_game"])
+        num_courts = config["num_courts"]
+
+        start = config["week_start_date"]
+        end = config["week_end_date"]
+        if isinstance(start, str):
+            start = datetime.strptime(start, "%Y-%m-%d").date()
+        if isinstance(end, str):
+            end = datetime.strptime(end, "%Y-%m-%d").date()
+
+        # Build slot grid
+        all_slots = []
+        current_date = start
+        while current_date <= end:
+            if is_club_closed(current_date):
+                current_date += timedelta(days=1)
+                continue
+            weekday = current_date.weekday()
+            if weekday <= 4:
+                first_g, last_g = wd_first, wd_last
+            else:
+                first_g, last_g = we_first, we_last
+
+            day_slots = generate_time_slots(current_date, first_g, last_g)
+            for slot_dt in day_slots:
+                for court in range(1, num_courts + 1):
+                    all_slots.append((current_date, slot_dt.time(), court))
+            current_date += timedelta(days=1)
+
+        # Build player name lookup from ladder
+        player_map = {}
+        for entry in ladder:
+            player_map[entry["player_id"]] = {
+                "first_name": entry.get("first_name", ""),
+                "last_name": entry.get("last_name", ""),
+            }
+
+        # Assign pairings to slots
+        preview_matches = []
+        for i, (def_id, def_pos, chal_id, chal_pos) in enumerate(pairings):
+            m = {
+                "defender_id": def_id,
+                "challenger_id": chal_id,
+                "defender_position": def_pos,
+                "challenger_position": chal_pos,
+                "defender": player_map.get(def_id, {}),
+                "challenger": player_map.get(chal_id, {}),
+                "is_completed": False,
+            }
+            if i < len(all_slots):
+                s_date, s_time, s_court = all_slots[i]
+                m["scheduled_date"] = str(s_date)
+                m["scheduled_time"] = s_time.strftime("%H:%M")
+                m["court_number"] = s_court
+            else:
+                m["scheduled_date"] = None
+                m["scheduled_time"] = None
+                m["court_number"] = None
+
+            preview_matches.append(m)
+
+        return preview_matches, resting
+
+    @staticmethod
+    def delete_week(week_id):
+        """
+        Delete a ranking week and all its matches.
+
+        Only safe to call on weeks where no matches have been completed
+        (caller must verify this before calling).
+
+        Returns True on success.
+        """
+        supabase = get_supabase_client()
+        try:
+            # 1. Delete all matches for this week
+            supabase.table("ranking_matches").delete().eq(
+                "week_id", week_id
+            ).execute()
+
+            # 2. Delete the week itself
+            supabase.table("ranking_weeks").delete().eq(
+                "id", week_id
+            ).execute()
+
+            return True
+        except Exception as e:
+            print(f"Error deleting week: {e}")
+            return False
+
     # ═══════════════════════════════════════════════════════════
     # MATCH RESULTS
     # ═══════════════════════════════════════════════════════════
