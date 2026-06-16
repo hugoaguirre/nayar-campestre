@@ -23,6 +23,10 @@ def render_draw_view():
     # 2. Filter Players
     df = st.session_state.get("players_df", pd.DataFrame()).copy()
 
+    if len(df) == 0 or "Categoría" not in df.columns:
+        st.info("Todavía no hay jugadores registrados en el torneo actual.")
+        return
+
     # --- NEW: AUTO-RESTORE PERSISTENCE ---
     t_id = st.session_state.tournament_data.get("id")
     is_finalized = st.session_state.tournament_data.get("is_finalized", False)

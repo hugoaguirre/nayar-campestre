@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from services.tournament_service import TournamentService
 
 def init_session_state():
     # 0. Auth State (set by utils/auth.py during login)

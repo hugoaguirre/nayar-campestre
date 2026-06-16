@@ -317,12 +317,12 @@ with tab_subcat:
             with cols[1]:
                 ps = st.number_input(
                     f"Desde {sc['name']}", min_value=0, value=existing.get("position_start", 0),
-                    key=f"sc_start_{sc['id']}", label_visibility="collapsed"
+                    key=f"sc_start_{cat_id}_{sc['id']}", label_visibility="collapsed"
                 )
             with cols[2]:
                 pe = st.number_input(
                     f"Hasta {sc['name']}", min_value=0, value=existing.get("position_end", 0),
-                    key=f"sc_end_{sc['id']}", label_visibility="collapsed"
+                    key=f"sc_end_{cat_id}_{sc['id']}", label_visibility="collapsed"
                 )
             if ps > 0 and pe > 0:
                 new_ranges.append({
