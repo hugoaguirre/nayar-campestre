@@ -437,10 +437,32 @@ with tab_schedule:
         for w in weeks:
             phase_icon = "C" if w["phase"] == "challenge" else "D"
             status = "Completada" if w["is_completed"] else "En curso"
-            st.markdown(
-                f"**{phase_icon} Semana {w['week_number']}** — "
-                f"{w['week_start_date']} → {w['week_end_date']} — {status}"
-            )
+
+            w_cols = st.columns([4, 1.5])
+            with w_cols[0]:
+                st.markdown(
+                    f"<p style='font-family:Montserrat,sans-serif; font-size:0.9rem; margin:0.4rem 0;'>"
+                    f"<b>{phase_icon} Semana {w['week_number']}</b> — "
+                    f"{w['week_start_date']} → {w['week_end_date']} — {status}</p>",
+                    unsafe_allow_html=True,
+                )
+            with w_cols[1]:
+                week_matches = RankingService.get_week_matches(w["id"])
+                if week_matches:
+                    from utils.pdf_export import generate_ranking_week_pdf
+                    pdf_bytes = generate_ranking_week_pdf(
+                        week_matches, w, selected_cat_name
+                    )
+                    phase_tag = "C" if w["phase"] == "challenge" else "D"
+                    file_name = f"ranking_sem{w['week_number']}_{phase_tag}_{selected_cat_name.lower()}.pdf"
+                    st.download_button(
+                        "Imprimir",
+                        data=pdf_bytes,
+                        file_name=file_name,
+                        mime="application/pdf",
+                        key=f"pdf_dl_{w['id']}",
+                        use_container_width=True,
+                    )
     else:
         st.caption("No hay semanas registradas.")
 
