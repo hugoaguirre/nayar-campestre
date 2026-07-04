@@ -88,22 +88,27 @@ st.markdown("""
 .subcat-header {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
-    margin: 0.8rem 0 0.3rem 0;
+    gap: 1rem;
+    margin: 1.4rem 0 0.5rem 0;
+    padding: 0.3rem 0;
 }
 .subcat-header .label {
     font-family: 'Montserrat', sans-serif;
     font-weight: 800;
-    font-size: 0.65rem;
-    letter-spacing: 2px;
-    color: rgba(255,255,255,0.35);
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    color: #CCFF00;
     text-transform: uppercase;
     white-space: nowrap;
+    text-shadow: 0 0 8px rgba(204, 255, 0, 0.25);
 }
 .subcat-header .line {
     flex-grow: 1;
     height: 1px;
-    background: rgba(255,255,255,0.08);
+    background: linear-gradient(90deg, rgba(204, 255, 0, 0.4), rgba(204, 255, 0, 0.05));
+}
+.subcat-header .line:first-child {
+    background: linear-gradient(90deg, rgba(204, 255, 0, 0.05), rgba(204, 255, 0, 0.4));
 }
 
 /* ── Wimbledon Scorebug Cards ─────────────────────────── */

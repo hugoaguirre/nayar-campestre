@@ -517,21 +517,21 @@ with tab_schedule:
     </div>
     """, unsafe_allow_html=True)
 
-    # Date range: next available Tuesday → Sunday
+    # Date range: next available Saturday → Friday
     today = date.today()
-    days_until_tuesday = (1 - today.weekday()) % 7
-    if days_until_tuesday == 0 and today.weekday() != 1:
-        days_until_tuesday = 7
-    next_tuesday = today + timedelta(days=days_until_tuesday)
-    next_sunday = next_tuesday + timedelta(days=5)
+    days_until_saturday = (5 - today.weekday()) % 7
+    if days_until_saturday == 0 and today.weekday() != 5:
+        days_until_saturday = 7
+    next_saturday = today + timedelta(days=days_until_saturday)
+    next_friday = next_saturday + timedelta(days=6)
 
     # ── Schedule configuration (non-form for dual button support) ─
     st.markdown("##### Configuración del Horario")
     d_cols = st.columns(2)
     with d_cols[0]:
-        start_date = st.date_input("Fecha inicio (Martes)", value=next_tuesday, key="sched_start")
+        start_date = st.date_input("Fecha inicio (Sábado)", value=next_saturday, key="sched_start")
     with d_cols[1]:
-        end_date = st.date_input("Fecha fin (Domingo)", value=next_sunday, key="sched_end")
+        end_date = st.date_input("Fecha fin (Viernes)", value=next_friday, key="sched_end")
 
     st.markdown("**Horarios entre semana** (Martes–Viernes)")
     wd_cols = st.columns(2)
