@@ -66,8 +66,10 @@ CREATE TABLE IF NOT EXISTS public.ranking_weeks (
     -- Schedule configuration per week
     weekday_first_game TIME NOT NULL DEFAULT '18:00',
     weekday_last_game TIME NOT NULL DEFAULT '19:30',
-    weekend_first_game TIME NOT NULL DEFAULT '10:00',
-    weekend_last_game TIME NOT NULL DEFAULT '19:00',
+    saturday_first_game TIME NOT NULL DEFAULT '10:00',
+    saturday_last_game TIME NOT NULL DEFAULT '19:00',
+    sunday_first_game TIME NOT NULL DEFAULT '10:00',
+    sunday_last_game TIME NOT NULL DEFAULT '19:00',
     num_courts INTEGER NOT NULL DEFAULT 6,
 
     -- The active date range (Tuesday through Sunday)

@@ -10,6 +10,7 @@ Handles:
 """
 from datetime import datetime, timedelta, time, date as date_type
 from collections import defaultdict
+import random
 from utils.supabase_client import get_supabase_client
 from core.scheduling_utils import (
     generate_time_slots,
@@ -296,7 +297,8 @@ class RankingService:
         Args:
             config: dict with keys:
                 weekday_first_game, weekday_last_game,
-                weekend_first_game, weekend_last_game,
+                saturday_first_game, saturday_last_game,
+                sunday_first_game, sunday_last_game,
                 num_courts, week_start_date, week_end_date
         """
         supabase = get_supabase_client()
@@ -306,8 +308,10 @@ class RankingService:
             "phase": phase,
             "weekday_first_game": config["weekday_first_game"],
             "weekday_last_game": config["weekday_last_game"],
-            "weekend_first_game": config["weekend_first_game"],
-            "weekend_last_game": config["weekend_last_game"],
+            "saturday_first_game": config["saturday_first_game"],
+            "saturday_last_game": config["saturday_last_game"],
+            "sunday_first_game": config["sunday_first_game"],
+            "sunday_last_game": config["sunday_last_game"],
             "num_courts": config["num_courts"],
             "week_start_date": str(config["week_start_date"]),
             "week_end_date": str(config["week_end_date"]),
@@ -339,8 +343,10 @@ class RankingService:
 
         wd_first = parse_time(week_data["weekday_first_game"])
         wd_last = parse_time(week_data["weekday_last_game"])
-        we_first = parse_time(week_data["weekend_first_game"])
-        we_last = parse_time(week_data["weekend_last_game"])
+        sat_first = parse_time(week_data["saturday_first_game"])
+        sat_last = parse_time(week_data["saturday_last_game"])
+        sun_first = parse_time(week_data["sunday_first_game"])
+        sun_last = parse_time(week_data["sunday_last_game"])
         num_courts = week_data["num_courts"]
 
         start = datetime.strptime(str(week_data["week_start_date"]), "%Y-%m-%d").date()
@@ -355,10 +361,16 @@ class RankingService:
                 continue
 
             weekday = current_date.weekday()
-            if weekday <= 4:
-                first_g, last_g = wd_first, wd_last
+            # Tue(1)–Thu(3) = weekday config; Fri(4) = closed; Sat(5); Sun(6)
+            if weekday == 4:
+                current_date += timedelta(days=1)
+                continue
+            elif weekday == 5:
+                first_g, last_g = sat_first, sat_last
+            elif weekday == 6:
+                first_g, last_g = sun_first, sun_last
             else:
-                first_g, last_g = we_first, we_last
+                first_g, last_g = wd_first, wd_last
 
             day_slots = generate_time_slots(current_date, first_g, last_g)
             for slot_dt in day_slots:
@@ -367,7 +379,11 @@ class RankingService:
 
             current_date += timedelta(days=1)
 
-        # Assign matches to slots sequentially
+        # Shuffle pairings so slot assignments vary each week
+        pairings = list(pairings)
+        random.shuffle(pairings)
+
+        # Assign matches to slots
         matches_to_insert = []
         for i, (def_id, def_pos, chal_id, chal_pos) in enumerate(pairings):
             match_row = {
@@ -402,7 +418,8 @@ class RankingService:
             ladder: ordered ladder list (from get_current_ladder).
             phase:  'challenge' or 'defend'.
             config: dict with weekday_first_game, weekday_last_game,
-                    weekend_first_game, weekend_last_game,
+                    saturday_first_game, saturday_last_game,
+                    sunday_first_game, sunday_last_game,
                     num_courts, week_start_date, week_end_date.
 
         Returns:
@@ -423,8 +440,10 @@ class RankingService:
 
         wd_first = parse_time(config["weekday_first_game"])
         wd_last = parse_time(config["weekday_last_game"])
-        we_first = parse_time(config["weekend_first_game"])
-        we_last = parse_time(config["weekend_last_game"])
+        sat_first = parse_time(config["saturday_first_game"])
+        sat_last = parse_time(config["saturday_last_game"])
+        sun_first = parse_time(config["sunday_first_game"])
+        sun_last = parse_time(config["sunday_last_game"])
         num_courts = config["num_courts"]
 
         start = config["week_start_date"]
@@ -442,10 +461,16 @@ class RankingService:
                 current_date += timedelta(days=1)
                 continue
             weekday = current_date.weekday()
-            if weekday <= 4:
-                first_g, last_g = wd_first, wd_last
+            # Tue(1)–Thu(3) = weekday config; Fri(4) = closed; Sat(5); Sun(6)
+            if weekday == 4:
+                current_date += timedelta(days=1)
+                continue
+            elif weekday == 5:
+                first_g, last_g = sat_first, sat_last
+            elif weekday == 6:
+                first_g, last_g = sun_first, sun_last
             else:
-                first_g, last_g = we_first, we_last
+                first_g, last_g = wd_first, wd_last
 
             day_slots = generate_time_slots(current_date, first_g, last_g)
             for slot_dt in day_slots:
@@ -460,6 +485,10 @@ class RankingService:
                 "first_name": entry.get("first_name", ""),
                 "last_name": entry.get("last_name", ""),
             }
+
+        # Shuffle pairings so slot assignments vary each week
+        pairings = list(pairings)
+        random.shuffle(pairings)
 
         # Assign pairings to slots
         preview_matches = []

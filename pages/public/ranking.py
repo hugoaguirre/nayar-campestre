@@ -414,52 +414,6 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
         current_week = _fetch_current_week(cat_id)
 
 
-        # ── Leaderboard Table ──────────────────────────────────
-        if not ladder:
-            st.markdown("""
-            <div style="text-align:center; padding:3rem 1rem;">
-                <p style="font-family:'Montserrat',sans-serif; color:rgba(255,255,255,0.35);
-                          font-size:0.9rem; letter-spacing:2px;">
-                    🎾 ESCALERA EN CONSTRUCCIÓN
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            prev_subcat = None
-            subcat_rank = 0
-            table_html = '<table class="ladder-table">'
-
-            for entry in ladder:
-                pos = entry["position"]
-                player = entry.get("players", {}) or {}
-                name = f"{player.get('first_name','')} {player.get('last_name','')}"
-                subcat = _get_subcat_label(pos, ranges)
-
-                if subcat and subcat != prev_subcat:
-                    table_html += (
-                        f'<tr><td colspan="2" style="padding:0;">'
-                        f'<div class="subcat-header">'
-                        f'<span class="line"></span>'
-                        f'<span class="label">{subcat}</span>'
-                        f'<span class="line"></span>'
-                        f'</div></td></tr>'
-                    )
-                    prev_subcat = subcat
-                    subcat_rank = 1
-                else:
-                    subcat_rank += 1
-
-                badge_cls = _pos_class(subcat_rank)
-                table_html += (
-                    f'<tr>'
-                    f'<td style="width:50px;"><span class="pos-badge {badge_cls}">{pos}</span></td>'
-                    f'<td><span class="player-name">{name}</span></td>'
-                    f'</tr>'
-                )
-
-            table_html += '</table>'
-            st.markdown(table_html, unsafe_allow_html=True)
-
         # ── Weekly Matches Carousel ───────────────────────────
         if current_week:
             week_matches = _fetch_week_matches(current_week["id"])
@@ -541,6 +495,52 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                     )
 
                 st.markdown(f'<div class="match-carousel">{carousel_cards}</div>', unsafe_allow_html=True)
+
+        # ── Leaderboard Table ──────────────────────────────────
+        if not ladder:
+            st.markdown("""
+            <div style="text-align:center; padding:3rem 1rem;">
+                <p style="font-family:'Montserrat',sans-serif; color:rgba(255,255,255,0.35);
+                          font-size:0.9rem; letter-spacing:2px;">
+                    🎾 ESCALERA EN CONSTRUCCIÓN
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            prev_subcat = None
+            subcat_rank = 0
+            table_html = '<table class="ladder-table">'
+
+            for entry in ladder:
+                pos = entry["position"]
+                player = entry.get("players", {}) or {}
+                name = f"{player.get('first_name','')} {player.get('last_name','')}"
+                subcat = _get_subcat_label(pos, ranges)
+
+                if subcat and subcat != prev_subcat:
+                    table_html += (
+                        f'<tr><td colspan="2" style="padding:0;">'
+                        f'<div class="subcat-header">'
+                        f'<span class="line"></span>'
+                        f'<span class="label">{subcat}</span>'
+                        f'<span class="line"></span>'
+                        f'</div></td></tr>'
+                    )
+                    prev_subcat = subcat
+                    subcat_rank = 1
+                else:
+                    subcat_rank += 1
+
+                badge_cls = _pos_class(subcat_rank)
+                table_html += (
+                    f'<tr>'
+                    f'<td style="width:50px;"><span class="pos-badge {badge_cls}">{pos}</span></td>'
+                    f'<td><span class="player-name">{name}</span></td>'
+                    f'</tr>'
+                )
+
+            table_html += '</table>'
+            st.markdown(table_html, unsafe_allow_html=True)
 
 # ── Footer ────────────────────────────────────────────────────
 st.markdown("""

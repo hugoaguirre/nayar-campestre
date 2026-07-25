@@ -111,7 +111,7 @@ def calculate_tournament_day_capacity(day, num_courts=6):
 
 def calculate_date_range_capacity(
     start_date, end_date,
-    weekday_config, weekend_config,
+    weekday_config, saturday_config, sunday_config,
     num_courts=6, slot_duration=SLOT_DURATION_MINUTES
 ):
     """
@@ -121,8 +121,9 @@ def calculate_date_range_capacity(
 
     Args:
         start_date, end_date: date objects defining the range (inclusive).
-        weekday_config:       tuple(time, time) — (first_game, last_game) for Tue–Fri.
-        weekend_config:       tuple(time, time) — (first_game, last_game) for Sat–Sun.
+        weekday_config:       tuple(time, time) — (first_game, last_game) for Tue–Thu.
+        saturday_config:      tuple(time, time) — (first_game, last_game) for Saturday.
+        sunday_config:        tuple(time, time) — (first_game, last_game) for Sunday.
         num_courts:           int — number of courts available.
         slot_duration:        int — minutes per match slot.
 
@@ -140,15 +141,17 @@ def calculate_date_range_capacity(
     while current <= end_date:
         weekday = current.weekday()
 
-        if weekday == 0:
-            # Monday — club closed
+        if weekday == 0 or weekday == 4:
+            # Monday — club closed; Friday — no ranking games
             current += timedelta(days=1)
             continue
 
-        if weekday <= 4:
-            first, last = weekday_config
+        if weekday == 5:
+            first, last = saturday_config
+        elif weekday == 6:
+            first, last = sunday_config
         else:
-            first, last = weekend_config
+            first, last = weekday_config
 
         slot_count = calculate_day_slot_count(current, first, last, slot_duration)
         total += slot_count * num_courts

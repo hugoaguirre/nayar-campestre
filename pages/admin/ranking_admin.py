@@ -517,13 +517,13 @@ with tab_schedule:
     </div>
     """, unsafe_allow_html=True)
 
-    # Date range: next available Saturday → Friday
+    # Date range: next available Saturday → Thursday
     today = date.today()
     days_until_saturday = (5 - today.weekday()) % 7
     if days_until_saturday == 0 and today.weekday() != 5:
         days_until_saturday = 7
     next_saturday = today + timedelta(days=days_until_saturday)
-    next_friday = next_saturday + timedelta(days=6)
+    next_thursday = next_saturday + timedelta(days=5)
 
     # ── Schedule configuration (non-form for dual button support) ─
     st.markdown("##### Configuración del Horario")
@@ -531,21 +531,28 @@ with tab_schedule:
     with d_cols[0]:
         start_date = st.date_input("Fecha inicio (Sábado)", value=next_saturday, key="sched_start")
     with d_cols[1]:
-        end_date = st.date_input("Fecha fin (Viernes)", value=next_friday, key="sched_end")
+        end_date = st.date_input("Fecha fin (Jueves)", value=next_thursday, key="sched_end")
 
-    st.markdown("**Horarios entre semana** (Martes–Viernes)")
+    st.markdown("**Horarios entre semana** (Martes–Jueves)")
     wd_cols = st.columns(2)
     with wd_cols[0]:
         wd_first = st.time_input("Primer juego", value=time(18, 0), key="wd_first")
     with wd_cols[1]:
         wd_last = st.time_input("Último juego", value=time(19, 30), key="wd_last")
 
-    st.markdown("**Horarios fin de semana** (Sábado–Domingo)")
-    we_cols = st.columns(2)
-    with we_cols[0]:
-        we_first = st.time_input("Primer juego", value=time(10, 0), key="we_first")
-    with we_cols[1]:
-        we_last = st.time_input("Último juego", value=time(19, 0), key="we_last")
+    st.markdown("**Horario Sábado**")
+    sat_cols = st.columns(2)
+    with sat_cols[0]:
+        sat_first = st.time_input("Primer juego", value=time(10, 0), key="sat_first")
+    with sat_cols[1]:
+        sat_last = st.time_input("Último juego", value=time(19, 0), key="sat_last")
+
+    st.markdown("**Horario Domingo**")
+    sun_cols = st.columns(2)
+    with sun_cols[0]:
+        sun_first = st.time_input("Primer juego", value=time(10, 0), key="sun_first")
+    with sun_cols[1]:
+        sun_last = st.time_input("Último juego", value=time(19, 0), key="sun_last")
 
     num_courts = st.number_input("Canchas disponibles", min_value=1, max_value=12, value=6, key="sched_courts")
 
@@ -553,8 +560,10 @@ with tab_schedule:
     _sched_config = {
         "weekday_first_game": wd_first.strftime("%H:%M"),
         "weekday_last_game": wd_last.strftime("%H:%M"),
-        "weekend_first_game": we_first.strftime("%H:%M"),
-        "weekend_last_game": we_last.strftime("%H:%M"),
+        "saturday_first_game": sat_first.strftime("%H:%M"),
+        "saturday_last_game": sat_last.strftime("%H:%M"),
+        "sunday_first_game": sun_first.strftime("%H:%M"),
+        "sunday_last_game": sun_last.strftime("%H:%M"),
         "num_courts": num_courts,
         "week_start_date": start_date,
         "week_end_date": end_date,
