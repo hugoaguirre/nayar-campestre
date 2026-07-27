@@ -680,7 +680,7 @@ with tab_schedule:
 
 
 # ═══════════════════════════════════════════════════════════════
-# TAB 4: RESULTADOS (Match Results Entry)
+# TAB 4: RESULTADOS (Match Results Entry — Draft Workflow)
 # ═══════════════════════════════════════════════════════════════
 with tab_results:
     weeks = RankingService.get_weeks(cat_id, limit=10)
@@ -701,9 +701,24 @@ with tab_results:
         if not matches:
             st.info("No hay partidos en esta semana.")
         else:
+            # ── Fetch all drafts for this week (single query) ─
+            drafts_map = RankingService.get_week_drafts(selected_week_id)
+
             completed = sum(1 for m in matches if m["is_completed"])
+            draft_count = len(drafts_map)
             st.markdown(f"**{completed}/{len(matches)}** partidos completados")
+            if draft_count > 0:
+                st.markdown(
+                    f'<p style="font-family:\'Montserrat\',sans-serif; font-size:0.8rem; '
+                    f'color:#CCFF00; margin-top:-0.5rem;">✎ {draft_count} resultado(s) '
+                    f'pendiente(s) por guardar</p>',
+                    unsafe_allow_html=True,
+                )
             st.progress(completed / len(matches) if matches else 0)
+
+            # ── Track which drafts are being edited via session state ─
+            if "editing_drafts" not in st.session_state:
+                st.session_state.editing_drafts = set()
 
             # ── Group matches by day ──────────────────────────
             _DIAS_ES = ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo']
@@ -743,6 +758,7 @@ with tab_results:
                 )
 
                 for m in day_matches:
+                    match_id = m["id"]
                     defender = m.get("defender", {}) or {}
                     challenger = m.get("challenger", {}) or {}
                     d_first = defender.get('first_name', '')
@@ -763,25 +779,44 @@ with tab_results:
                         court = f"Cancha {m.get('court_number', '?')}"
                         time_court = f"{t_val} — {court}"
 
-                    status_icon = "●" if m["is_completed"] else "○"
+                    # Determine match state
+                    is_completed = m["is_completed"]
+                    draft = drafts_map.get(match_id)
+                    has_draft = draft is not None
+                    is_editing = match_id in st.session_state.editing_drafts
+
+                    # Status icon
+                    if is_completed:
+                        status_icon = "●"
+                    elif has_draft:
+                        status_icon = "✓"
+                    else:
+                        status_icon = "○"
+
+                    # Draft badge styling
+                    card_border_top = "#450084"
+                    if has_draft and not is_completed:
+                        card_border_top = "#CCFF00"
 
                     # ── Frosted glass match card ──────────────
+                    draft_badge = '  <span style="color:#CCFF00; font-weight:600;">BORRADOR</span>' if has_draft and not is_completed else ""
                     st.markdown(
-                        f'<div class="ranking-card">'
+                        f'<div class="ranking-card" style="border-top-color:{card_border_top};">'
                         f'<div style="font-size:0.7rem; color:rgba(255,255,255,0.4); margin-bottom:0.4rem;">'
-                        f'{status_icon} {time_court}</div>'
+                        f'{status_icon} {time_court}{draft_badge}'
+                        f'</div>'
                         f'<div style="display:flex; justify-content:center; align-items:center; gap:0.8rem;">'
-                        f'<span style="font-family:\'Montserrat\',sans-serif; font-weight:700; font-size:0.95rem;">'
+                        f"<span style=\"font-family:'Montserrat',sans-serif; font-weight:700; font-size:0.95rem;\">"
                         f'#{d_pos} {d_name}</span>'
                         f'<span style="color:#CCFF00; font-weight:900; font-size:0.75rem; letter-spacing:2px;">VS</span>'
-                        f'<span style="font-family:\'Montserrat\',sans-serif; font-weight:700; font-size:0.95rem;">'
+                        f"<span style=\"font-family:'Montserrat',sans-serif; font-weight:700; font-size:0.95rem;\">"
                         f'#{c_pos} {c_name}</span>'
                         f'</div></div>',
                         unsafe_allow_html=True,
                     )
 
-                    if m["is_completed"]:
-                        # ── Completed: scorebug in expander ───────
+                    if is_completed:
+                        # ── COMMITTED: read-only scorebug ─────────
                         winner_id = m.get("winner_id")
                         d_won = winner_id == m["defender_id"]
                         c_won = winner_id == m["challenger_id"]
@@ -815,62 +850,176 @@ with tab_results:
                         )
                         st.markdown(scorebug_html, unsafe_allow_html=True)
 
+                    elif has_draft and not is_editing:
+                        # ── DRAFTED: show draft scorebug + edit button ─
+                        draft_winner_id = draft.get("winner_id")
+                        d_won = draft_winner_id == m["defender_id"]
+                        c_won = draft_winner_id == m["challenger_id"]
+                        d_row_cls = "sb-winner" if d_won else "sb-loser"
+                        c_row_cls = "sb-winner" if c_won else "sb-loser"
+
+                        sets = [
+                            (draft.get('set1_defender'), draft.get('set1_challenger')),
+                            (draft.get('set2_defender'), draft.get('set2_challenger')),
+                        ]
+                        if draft.get('set3_defender') is not None:
+                            sets.append((draft.get('set3_defender'), draft.get('set3_challenger')))
+
+                        d_sets_html = ""
+                        c_sets_html = ""
+                        for ds, cs in sets:
+                            dw = "set-won" if ds is not None and cs is not None and ds > cs else ""
+                            cw = "set-won" if ds is not None and cs is not None and cs > ds else ""
+                            d_sets_html += f'<td class="sb-set {dw}">{ds}</td>'
+                            c_sets_html += f'<td class="sb-set {cw}">{cs}</td>'
+                        for _ in range(3 - len(sets)):
+                            d_sets_html += '<td class="sb-set"></td>'
+                            c_sets_html += '<td class="sb-set"></td>'
+
+                        forfeit_tag = ""
+                        if draft.get("is_forfeit"):
+                            forfeit_tag = ' <span style="color:#ef4444; font-size:0.65rem; font-weight:700;">WALKOVER</span>'
+
+                        scorebug_html = (
+                            f'<table class="admin-scorebug">'
+                            f'<thead><tr><th>{forfeit_tag}</th><th>S1</th><th>S2</th><th>S3</th></tr></thead>'
+                            f'<tr class="{d_row_cls}"><td class="sb-name">{d_name} <span class="sb-pos">{d_pos}</span></td>{d_sets_html}</tr>'
+                            f'<tr class="{c_row_cls}"><td class="sb-name">{c_name} <span class="sb-pos">{c_pos}</span></td>{c_sets_html}</tr>'
+                            f'</table>'
+                        )
+                        st.markdown(scorebug_html, unsafe_allow_html=True)
+
+                        # Edit / Remove draft buttons
+                        edit_cols = st.columns([1, 1])
+                        with edit_cols[0]:
+                            if st.button("✏️ Editar", key=f"edit_draft_{match_id}", use_container_width=True):
+                                st.session_state.editing_drafts.add(match_id)
+                                st.rerun()
+                        with edit_cols[1]:
+                            if st.button("🗑️ Quitar", key=f"del_draft_{match_id}", use_container_width=True):
+                                RankingService.delete_draft(match_id)
+                                st.session_state.editing_drafts.discard(match_id)
+                                st.toast("Borrador eliminado")
+                                st.rerun()
+
                     else:
-                        # ── Pending: scorebug inside expander ─────
-                        with st.expander(f"Capturar resultado — #{d_pos} vs #{c_pos}"):
+                        # ── PENDING / EDITING: score input expander ────
+                        expander_label = (
+                            f"Editar borrador — #{d_pos} vs #{c_pos}"
+                            if has_draft
+                            else f"Capturar resultado — #{d_pos} vs #{c_pos}"
+                        )
+
+                        # Pre-populate from draft if editing
+                        default_s1d = (draft.get("set1_defender") or 0) if draft else 0
+                        default_s2d = (draft.get("set2_defender") or 0) if draft else 0
+                        default_s3d = (draft.get("set3_defender") or 0) if draft else 0
+                        default_s1c = (draft.get("set1_challenger") or 0) if draft else 0
+                        default_s2c = (draft.get("set2_challenger") or 0) if draft else 0
+                        default_s3c = (draft.get("set3_challenger") or 0) if draft else 0
+                        default_forfeit = draft.get("is_forfeit", False) if draft else False
+
+                        with st.expander(expander_label, expanded=is_editing):
                             # Scorebug row: Name | S1 | S2 | S3
                             header_cols = st.columns([3, 1, 1, 1])
                             with header_cols[0]:
                                 st.markdown(f"**{d_name}** `#{d_pos}`")
                             with header_cols[1]:
-                                s1d = st.number_input("S1", min_value=0, max_value=7, value=0, key=f"s1d_{m['id']}", label_visibility="collapsed")
+                                s1d = st.number_input("S1", min_value=0, max_value=7, value=default_s1d, key=f"s1d_{match_id}", label_visibility="collapsed")
                             with header_cols[2]:
-                                s2d = st.number_input("S2", min_value=0, max_value=7, value=0, key=f"s2d_{m['id']}", label_visibility="collapsed")
+                                s2d = st.number_input("S2", min_value=0, max_value=7, value=default_s2d, key=f"s2d_{match_id}", label_visibility="collapsed")
                             with header_cols[3]:
-                                s3d = st.number_input("S3", min_value=0, max_value=10, value=0, key=f"s3d_{m['id']}", label_visibility="collapsed")
+                                s3d = st.number_input("S3", min_value=0, max_value=10, value=default_s3d, key=f"s3d_{match_id}", label_visibility="collapsed")
 
                             row2_cols = st.columns([3, 1, 1, 1])
                             with row2_cols[0]:
                                 st.markdown(f"**{c_name}** `#{c_pos}`")
                             with row2_cols[1]:
-                                s1c = st.number_input("S1", min_value=0, max_value=7, value=0, key=f"s1c_{m['id']}", label_visibility="collapsed")
+                                s1c = st.number_input("S1", min_value=0, max_value=7, value=default_s1c, key=f"s1c_{match_id}", label_visibility="collapsed")
                             with row2_cols[2]:
-                                s2c = st.number_input("S2", min_value=0, max_value=7, value=0, key=f"s2c_{m['id']}", label_visibility="collapsed")
+                                s2c = st.number_input("S2", min_value=0, max_value=7, value=default_s2c, key=f"s2c_{match_id}", label_visibility="collapsed")
                             with row2_cols[3]:
-                                s3c = st.number_input("S3", min_value=0, max_value=10, value=0, key=f"s3c_{m['id']}", label_visibility="collapsed")
+                                s3c = st.number_input("S3", min_value=0, max_value=10, value=default_s3c, key=f"s3c_{match_id}", label_visibility="collapsed")
 
                             # Auto-detect winner
                             sets_d = (1 if s1d > s1c else 0) + (1 if s2d > s2c else 0) + (1 if s3d > s3c else 0)
                             sets_c = (1 if s1c > s1d else 0) + (1 if s2c > s2d else 0) + (1 if s3c > s3d else 0)
 
-                            is_forfeit = st.checkbox("Walkover / Forfeit", key=f"forfeit_{m['id']}")
+                            is_forfeit = st.checkbox("Walkover / Forfeit", value=default_forfeit, key=f"forfeit_{match_id}")
 
                             winner_id = m["defender_id"] if sets_d >= sets_c else m["challenger_id"]
 
-                            if st.button("GUARDAR", key=f"save_{m['id']}", use_container_width=True):
-                                scores = {
-                                    "set1_defender": s1d, "set1_challenger": s1c,
-                                    "set2_defender": s2d, "set2_challenger": s2c,
-                                    "set3_defender": s3d if s3d > 0 or s3c > 0 else None,
-                                    "set3_challenger": s3c if s3d > 0 or s3c > 0 else None,
-                                }
-                                result = RankingService.apply_match_result(
-                                    m["id"], winner_id, scores, is_forfeit,
-                                    entered_by=user.get("id")
-                                )
-                                if result.get("swapped"):
-                                    st.toast(f"¡{c_name} sube a #{d_pos}!")
-                                else:
-                                    st.toast(f"{d_name} defiende la posición #{d_pos}")
-                                st.rerun()
+                            btn_cols = st.columns([1, 1] if is_editing else [1])
+                            with btn_cols[0]:
+                                save_label = "✓ ACTUALIZAR BORRADOR" if has_draft else "✓ GUARDAR BORRADOR"
+                                if st.button(save_label, key=f"save_draft_{match_id}", use_container_width=True):
+                                    scores = {
+                                        "set1_defender": s1d, "set1_challenger": s1c,
+                                        "set2_defender": s2d, "set2_challenger": s2c,
+                                        "set3_defender": s3d if s3d > 0 or s3c > 0 else None,
+                                        "set3_challenger": s3c if s3d > 0 or s3c > 0 else None,
+                                    }
+                                    result = RankingService.save_draft_result(
+                                        match_id, winner_id, scores, is_forfeit,
+                                        entered_by=user.get("id")
+                                    )
+                                    if result:
+                                        st.session_state.editing_drafts.discard(match_id)
+                                        st.toast(f"✓ Borrador guardado — #{d_pos} vs #{c_pos}")
+                                        st.rerun()
+                                    else:
+                                        st.error("Error al guardar el borrador.")
 
-        # ── Close week button ─────────────────────────────────
-        if not selected_week.get("is_completed"):
-            st.divider()
-            st.warning("Al cerrar la semana, los partidos sin resultado se marcarán como forfeit (6-0 6-0) a favor del defensor.")
-            if st.button("CERRAR SEMANA", key="close_week_btn", use_container_width=True):
-                RankingService.complete_week(selected_week_id)
-                st.toast("Semana cerrada exitosamente")
-                st.rerun()
+                            if is_editing and len(btn_cols) > 1:
+                                with btn_cols[1]:
+                                    if st.button("CANCELAR", key=f"cancel_edit_{match_id}", use_container_width=True):
+                                        st.session_state.editing_drafts.discard(match_id)
+                                        st.rerun()
 
+            # ── Bulk commit button ────────────────────────────
+            if not selected_week.get("is_completed"):
+                st.divider()
 
+                if draft_count > 0:
+                    st.markdown(
+                        f'<div style="background:rgba(204,255,0,0.08); border:1px solid rgba(204,255,0,0.3); '
+                        f'border-radius:10px; padding:1rem; margin-bottom:1rem; text-align:center;">'
+                        f'<p style="font-family:\'Montserrat\',sans-serif; font-weight:700; '
+                        f'color:#CCFF00; margin:0; font-size:0.9rem;">'
+                        f'✎ {draft_count} resultado(s) listos para guardar</p>'
+                        f'<p style="color:rgba(255,255,255,0.5); font-size:0.75rem; margin:0.3rem 0 0 0;">'
+                        f'Al guardar, se aplicarán los cambios de posición en la escalera.</p>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    if st.button(
+                        f"💾 GUARDAR {draft_count} RESULTADO{'S' if draft_count > 1 else ''}",
+                        key="commit_drafts_btn",
+                        type="primary",
+                        use_container_width=True,
+                    ):
+                        with st.spinner("Guardando resultados y actualizando escalera..."):
+                            commit_result = RankingService.commit_week_drafts(
+                                selected_week_id, entered_by=user.get("id")
+                            )
+                        if commit_result["errors"]:
+                            for err in commit_result["errors"]:
+                                st.error(err)
+                        if commit_result["committed"] > 0:
+                            st.toast(f"✓ {commit_result['committed']} resultado(s) guardados")
+                            st.rerun()
+
+                # ── Close week button ─────────────────────────
+                st.divider()
+                st.warning("Al cerrar la semana, los partidos sin resultado se marcarán como forfeit (6-0 6-0) a favor del defensor.")
+                if st.button("CERRAR SEMANA", key="close_week_btn", use_container_width=True):
+                    # Commit any remaining drafts first
+                    if draft_count > 0:
+                        with st.spinner("Guardando borradores pendientes..."):
+                            RankingService.commit_week_drafts(
+                                selected_week_id, entered_by=user.get("id")
+                            )
+                    RankingService.complete_week(selected_week_id)
+                    st.toast("Semana cerrada exitosamente")
+                    st.rerun()

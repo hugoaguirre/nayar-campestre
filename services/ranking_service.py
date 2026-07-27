@@ -661,6 +661,194 @@ class RankingService:
         ).eq("id", week_id).execute()
 
     # ═══════════════════════════════════════════════════════════
+    # DRAFT RESULTS (staging layer before commit)
+    # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def save_draft_result(match_id, winner_id, scores, is_forfeit=False, entered_by=None):
+        """
+        Upsert a draft result into ranking_match_drafts.
+
+        This stores scores temporarily — nothing is written to ranking_matches
+        or ranking_ladders until commit_week_drafts() is called.
+
+        Args:
+            match_id:   UUID of the ranking_match.
+            winner_id:  UUID of the winning player.
+            scores:     dict with set1_defender, set1_challenger, etc.
+            is_forfeit: bool.
+            entered_by: UUID of the coach (auth.users.id).
+
+        Returns:
+            The upserted draft row, or None on failure.
+        """
+        supabase = get_supabase_client()
+
+        draft_row = {
+            "match_id": match_id,
+            "winner_id": winner_id,
+            "is_forfeit": is_forfeit,
+            **scores,
+        }
+        if entered_by:
+            draft_row["entered_by"] = entered_by
+
+        try:
+            resp = (
+                supabase.table("ranking_match_drafts")
+                .upsert(draft_row, on_conflict="match_id")
+                .execute()
+            )
+            return resp.data[0] if resp.data else None
+        except Exception as e:
+            print(f"Error saving draft: {e}")
+            return None
+
+    @staticmethod
+    def get_week_drafts(week_id):
+        """
+        Fetch all draft results for a given week.
+
+        Joins through ranking_matches.week_id to find all drafts
+        belonging to matches in this week.
+
+        Returns:
+            dict mapping match_id → draft row.
+        """
+        supabase = get_supabase_client()
+
+        # First get all match IDs for this week
+        matches_resp = (
+            supabase.table("ranking_matches")
+            .select("id")
+            .eq("week_id", week_id)
+            .execute()
+        )
+        match_ids = [m["id"] for m in (matches_resp.data or [])]
+        if not match_ids:
+            return {}
+
+        # Fetch drafts for these matches
+        drafts_resp = (
+            supabase.table("ranking_match_drafts")
+            .select("*")
+            .in_("match_id", match_ids)
+            .execute()
+        )
+
+        return {d["match_id"]: d for d in (drafts_resp.data or [])}
+
+    @staticmethod
+    def get_draft_for_match(match_id):
+        """
+        Fetch a single draft for a specific match.
+
+        Returns:
+            Draft row dict, or None if no draft exists.
+        """
+        supabase = get_supabase_client()
+        resp = (
+            supabase.table("ranking_match_drafts")
+            .select("*")
+            .eq("match_id", match_id)
+            .limit(1)
+            .execute()
+        )
+        return resp.data[0] if resp.data else None
+
+    @staticmethod
+    def commit_week_drafts(week_id, entered_by=None):
+        """
+        Batch-commit all drafts for a week.
+
+        For each draft:
+          1. Calls apply_match_result() (writes to ranking_matches + swaps positions).
+          2. Deletes the draft row.
+
+        Processes matches in position order (highest-ranked first) to ensure
+        consistent swap behavior.
+
+        Args:
+            week_id:    UUID of the ranking_week.
+            entered_by: UUID of the coach.
+
+        Returns:
+            dict with {committed: int, errors: list[str]}
+        """
+        supabase = get_supabase_client()
+        drafts_map = RankingService.get_week_drafts(week_id)
+
+        if not drafts_map:
+            return {"committed": 0, "errors": []}
+
+        # Fetch match details to sort by defender_position (highest rank first)
+        matches_resp = (
+            supabase.table("ranking_matches")
+            .select("id, defender_position")
+            .in_("id", list(drafts_map.keys()))
+            .order("defender_position")
+            .execute()
+        )
+        ordered_match_ids = [m["id"] for m in (matches_resp.data or [])]
+
+        committed = 0
+        errors = []
+
+        for match_id in ordered_match_ids:
+            draft = drafts_map.get(match_id)
+            if not draft:
+                continue
+
+            scores = {
+                "set1_defender": draft.get("set1_defender"),
+                "set1_challenger": draft.get("set1_challenger"),
+                "set2_defender": draft.get("set2_defender"),
+                "set2_challenger": draft.get("set2_challenger"),
+                "set3_defender": draft.get("set3_defender"),
+                "set3_challenger": draft.get("set3_challenger"),
+            }
+
+            result = RankingService.apply_match_result(
+                match_id,
+                draft["winner_id"],
+                scores,
+                is_forfeit=draft.get("is_forfeit", False),
+                entered_by=entered_by,
+            )
+
+            if result.get("error"):
+                errors.append(f"Match {match_id}: {result['error']}")
+            else:
+                committed += 1
+
+            # Delete the draft after successful commit
+            try:
+                supabase.table("ranking_match_drafts").delete().eq(
+                    "match_id", match_id
+                ).execute()
+            except Exception as e:
+                errors.append(f"Draft cleanup {match_id}: {e}")
+
+        return {"committed": committed, "errors": errors}
+
+    @staticmethod
+    def delete_draft(match_id):
+        """
+        Delete a single draft result.
+
+        Returns True on success.
+        """
+        supabase = get_supabase_client()
+        try:
+            supabase.table("ranking_match_drafts").delete().eq(
+                "match_id", match_id
+            ).execute()
+            return True
+        except Exception as e:
+            print(f"Error deleting draft: {e}")
+            return False
+
+    # ═══════════════════════════════════════════════════════════
     # MATCH & WEEK READS
     # ═══════════════════════════════════════════════════════════
 
