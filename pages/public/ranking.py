@@ -93,17 +93,17 @@ div[data-testid="stDialog"] button[title="Close"]:hover {
 }
 .pos-gold {
     background: linear-gradient(145deg, #f5d442, #c9a227);
-    color: #3d2e00;
+    color: #8a6d10;
     box-shadow: 0 2px 8px rgba(245,212,66,0.3);
 }
 .pos-silver {
     background: linear-gradient(145deg, #d1d5db, #9ca3af);
-    color: #374151;
+    color: #5a6270;
     box-shadow: 0 2px 8px rgba(209,213,219,0.2);
 }
 .pos-bronze {
     background: linear-gradient(145deg, #d4956a, #b07a50);
-    color: #3e2a16;
+    color: #6b3f1f;
     box-shadow: 0 2px 8px rgba(212,149,106,0.2);
 }
 .pos-default {
@@ -111,12 +111,50 @@ div[data-testid="stDialog"] button[title="Close"]:hover {
     color: rgba(255,255,255,0.6);
 }
 
-/* ── Player Name ───────────────────────────────────────── */
+/* ── Player Name & Streak Badges ───────────────────────── */
 .player-name {
     font-family: 'Montserrat', sans-serif;
     font-weight: 700;
     font-size: 0.9rem;
     color: #ffffff;
+}
+.streak-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 0.6rem;
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 0.78rem;
+    letter-spacing: 0.8px;
+    white-space: nowrap;
+    vertical-align: middle;
+    animation: streakPulse 2.5s ease-in-out infinite;
+}
+.streak-hot {
+    background: linear-gradient(135deg, rgba(255, 140, 0, 0.25), rgba(255, 80, 0, 0.15));
+    border: 1px solid rgba(255, 170, 0, 0.7);
+    color: #FFBB33;
+    box-shadow: 0 0 10px rgba(255, 140, 0, 0.3), inset 0 0 6px rgba(255, 140, 0, 0.1);
+    text-shadow: 0 0 6px rgba(255, 140, 0, 0.4);
+}
+.streak-super {
+    background: linear-gradient(135deg, rgba(204, 255, 0, 0.25), rgba(150, 255, 0, 0.12));
+    border: 1px solid rgba(204, 255, 0, 0.8);
+    color: #CCFF00;
+    box-shadow: 0 0 14px rgba(204, 255, 0, 0.4), inset 0 0 8px rgba(204, 255, 0, 0.1);
+    text-shadow: 0 0 8px rgba(204, 255, 0, 0.5);
+    animation: streakGlow 2s ease-in-out infinite;
+}
+@keyframes streakPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+}
+@keyframes streakGlow {
+    0%, 100% { box-shadow: 0 0 14px rgba(204, 255, 0, 0.4), inset 0 0 8px rgba(204, 255, 0, 0.1); }
+    50% { box-shadow: 0 0 20px rgba(204, 255, 0, 0.6), inset 0 0 12px rgba(204, 255, 0, 0.15); }
 }
 
 /* ── Sub-category Pills ────────────────────────────────── */
@@ -448,6 +486,79 @@ def _fetch_current_week(category_id):
     return resp.data[0] if resp.data else None
 
 
+def _parse_single_match(m, player_id, is_defender):
+    opponent = m.get("challenger", {}) if is_defender else m.get("defender", {})
+    opponent_pos = m.get("challenger_position") if is_defender else m.get("defender_position")
+    player_pos = m.get("defender_position") if is_defender else m.get("challenger_position")
+    won = m.get("winner_id") == player_id
+
+    sets = []
+    s1_p = m.get("set1_defender") if is_defender else m.get("set1_challenger")
+    s1_o = m.get("set1_challenger") if is_defender else m.get("set1_defender")
+    if s1_p is not None and s1_o is not None:
+        sets.append((s1_p, s1_o))
+
+    s2_p = m.get("set2_defender") if is_defender else m.get("set2_challenger")
+    s2_o = m.get("set2_challenger") if is_defender else m.get("set2_defender")
+    if s2_p is not None and s2_o is not None:
+        sets.append((s2_p, s2_o))
+
+    s3_p = m.get("set3_defender") if is_defender else m.get("set3_challenger")
+    s3_o = m.get("set3_challenger") if is_defender else m.get("set3_defender")
+    if s3_p is not None and s3_o is not None:
+        sets.append((s3_p, s3_o))
+
+    return {
+        "won": won,
+        "is_forfeit": m.get("is_forfeit", False),
+        "opponent_name": f"{opponent.get('first_name', '')} {opponent.get('last_name', '')}".strip(),
+        "opponent_pos": opponent_pos,
+        "player_pos": player_pos,
+        "week_number": (m.get("ranking_weeks") or {}).get("week_number"),
+        "scheduled_date": m.get("scheduled_date"),
+        "sets": sets,
+    }
+
+
+@st.cache_data(ttl=30)
+def _fetch_category_player_matches(category_id):
+    client = get_anon_client()
+    resp = (
+        client.table("ranking_matches")
+        .select(
+            "*, "
+            "ranking_weeks!inner(category_id, week_number, phase), "
+            "defender:players!defender_id(first_name, last_name), "
+            "challenger:players!challenger_id(first_name, last_name)"
+        )
+        .eq("ranking_weeks.category_id", category_id)
+        .eq("is_completed", True)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    raw_matches = resp.data or []
+    from collections import defaultdict
+    player_matches = defaultdict(list)
+    for m in raw_matches:
+        def_id = m["defender_id"]
+        chal_id = m["challenger_id"]
+
+        player_matches[def_id].append(_parse_single_match(m, def_id, is_defender=True))
+        player_matches[chal_id].append(_parse_single_match(m, chal_id, is_defender=False))
+
+    streaks = {}
+    for pid, p_m in player_matches.items():
+        count = 0
+        for m in p_m:
+            if m.get("won"):
+                count += 1
+            else:
+                break
+        streaks[pid] = count
+
+    return dict(player_matches), streaks
+
+
 @st.cache_data(ttl=30)
 def _fetch_week_matches(week_id):
     client = get_anon_client()
@@ -537,11 +648,20 @@ def _fetch_player_recent_matches(player_id, limit=5):
 def show_player_stats_modal(player_id: str, name: str, position: int, subcategory: str):
     matches = _fetch_player_recent_matches(player_id, limit=5)
 
+    all_recent = _fetch_player_recent_matches(player_id, limit=10)
+    streak = 0
+    for m in all_recent:
+        if m.get("won"):
+            streak += 1
+        else:
+            break
+
     sc_pill = (
         f'<span class="sc-pill {_sc_css(subcategory)}">{subcategory}</span>'
         if subcategory
         else ""
     )
+
     st.markdown(
         f"""
     <div style="text-align:center; padding: 0.2rem 0 0.8rem 0;">
@@ -558,6 +678,43 @@ def show_player_stats_modal(player_id: str, name: str, position: int, subcategor
     """,
         unsafe_allow_html=True,
     )
+
+    # Streak banner — rendered as its own st.markdown to avoid HTML escaping
+    if streak >= 3:
+        if streak >= 5:
+            banner_bg = "linear-gradient(135deg, rgba(204,255,0,0.15), rgba(150,255,0,0.08))"
+            banner_border = "#CCFF00"
+            banner_color = "#CCFF00"
+            banner_shadow = "0 0 18px rgba(204,255,0,0.3)"
+        else:
+            banner_bg = "linear-gradient(135deg, rgba(255,140,0,0.15), rgba(255,80,0,0.08))"
+            banner_border = "#FFAA00"
+            banner_color = "#FFBB33"
+            banner_shadow = "0 0 14px rgba(255,140,0,0.25)"
+
+        st.markdown(
+            f"""
+        <div style="
+            background: {banner_bg};
+            border: 1px solid {banner_border};
+            border-radius: 12px;
+            padding: 0.5rem 1rem;
+            text-align: center;
+            margin: 0 auto 0.8rem auto;
+            max-width: 320px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 800;
+            font-size: 0.72rem;
+            color: {banner_color};
+            letter-spacing: 1.5px;
+            box-shadow: {banner_shadow};
+            text-shadow: 0 0 8px rgba(255,140,0,0.3);
+        ">
+            EN UNA RACHA 🔥
+        </div>
+        """,
+            unsafe_allow_html=True,
+        )
 
     if not matches:
         st.markdown(
@@ -924,17 +1081,17 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
             }
             .pos-gold {
                 background: linear-gradient(145deg, #f5d442, #c9a227);
-                color: #3d2e00;
+                color: #8a6d10;
                 box-shadow: 0 2px 8px rgba(245,212,66,0.3);
             }
             .pos-silver {
                 background: linear-gradient(145deg, #d1d5db, #9ca3af);
-                color: #374151;
+                color: #5a6270;
                 box-shadow: 0 2px 8px rgba(209,213,219,0.2);
             }
             .pos-bronze {
                 background: linear-gradient(145deg, #d4956a, #b07a50);
-                color: #3e2a16;
+                color: #6b3f1f;
                 box-shadow: 0 2px 8px rgba(212,149,106,0.2);
             }
             .pos-default {
@@ -972,9 +1129,50 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
             .subcat-header .line:first-child {
                 background: linear-gradient(90deg, rgba(204, 255, 0, 0.05), rgba(204, 255, 0, 0.4));
             }
+            /* ── Streak Badges (inside iframe) ──────────────────── */
+            .streak-badge {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                margin-left: 0.6rem;
+                padding: 4px 12px;
+                border-radius: 14px;
+                font-family: 'Montserrat', sans-serif;
+                font-weight: 800;
+                font-size: 0.78rem;
+                letter-spacing: 0.8px;
+                white-space: nowrap;
+                vertical-align: middle;
+                animation: streakPulse 2.5s ease-in-out infinite;
+            }
+            .streak-hot {
+                background: linear-gradient(135deg, rgba(255, 140, 0, 0.25), rgba(255, 80, 0, 0.15));
+                border: 1px solid rgba(255, 170, 0, 0.7);
+                color: #FFBB33;
+                box-shadow: 0 0 10px rgba(255, 140, 0, 0.3), inset 0 0 6px rgba(255, 140, 0, 0.1);
+                text-shadow: 0 0 6px rgba(255, 140, 0, 0.4);
+            }
+            .streak-super {
+                background: linear-gradient(135deg, rgba(204, 255, 0, 0.25), rgba(150, 255, 0, 0.12));
+                border: 1px solid rgba(204, 255, 0, 0.8);
+                color: #CCFF00;
+                box-shadow: 0 0 14px rgba(204, 255, 0, 0.4), inset 0 0 8px rgba(204, 255, 0, 0.1);
+                text-shadow: 0 0 8px rgba(204, 255, 0, 0.5);
+                animation: streakGlow 2s ease-in-out infinite;
+            }
+            @keyframes streakPulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.85; }
+            }
+            @keyframes streakGlow {
+                0%, 100% { box-shadow: 0 0 14px rgba(204, 255, 0, 0.4), inset 0 0 8px rgba(204, 255, 0, 0.1); }
+                50% { box-shadow: 0 0 20px rgba(204, 255, 0, 0.6), inset 0 0 12px rgba(204, 255, 0, 0.15); }
+            }
             </style>
             <table class="ladder-table"><tbody>
             """
+
+            _, player_streaks = _fetch_category_player_matches(cat_id)
 
             for entry in ladder:
                 pos = entry["position"]
@@ -982,6 +1180,12 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                 player = entry.get("players", {}) or {}
                 name = f"{player.get('first_name', '')} {player.get('last_name', '')}"
                 subcat = _get_subcat_label(pos, ranges)
+                streak = player_streaks.get(player_id, 0)
+
+                streak_html = ""
+                if streak >= 3:
+                    b_cls = "streak-super" if streak >= 5 else "streak-hot"
+                    streak_html = f' <span class="streak-badge {b_cls}" title="🔥 Racha de {streak} victorias consecutivas">🔥 {streak}V</span>'
 
                 if subcat and subcat != prev_subcat:
                     table_html += (
@@ -1001,7 +1205,7 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                 table_html += (
                     f'<tr data-player-id="{player_id}">'
                     f'<td><span class="pos-badge {badge_cls}">{pos}</span></td>'
-                    f'<td><span class="player-name">{name}</span></td>'
+                    f'<td><span class="player-name">{name}</span>{streak_html}</td>'
                     f"</tr>"
                 )
 
