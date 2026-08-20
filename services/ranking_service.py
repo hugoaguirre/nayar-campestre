@@ -872,18 +872,68 @@ class RankingService:
         return resp.data or []
 
     @staticmethod
-    def get_weeks(category_id, limit=20):
-        """Fetch recent weeks for a category, newest first."""
+    def get_player_recent_matches(player_id, limit=5):
+        """
+        Fetch completed recent matches for a specific player (as defender or challenger).
+
+        Returns list of match dicts with parsed opponent info, set scores, and outcome.
+        """
         supabase = get_supabase_client()
         resp = (
-            supabase.table("ranking_weeks")
-            .select("*")
-            .eq("category_id", category_id)
-            .order("week_number", desc=True)
+            supabase.table("ranking_matches")
+            .select(
+                "*, "
+                "ranking_weeks(week_number, phase), "
+                "defender:players!defender_id(first_name, last_name), "
+                "challenger:players!challenger_id(first_name, last_name)"
+            )
+            .eq("is_completed", True)
+            .or_(f"defender_id.eq.{player_id},challenger_id.eq.{player_id}")
+            .order("created_at", desc=True)
             .limit(limit)
             .execute()
         )
-        return resp.data or []
+
+        raw_matches = resp.data or []
+        parsed = []
+        for m in raw_matches:
+            is_defender = m["defender_id"] == player_id
+            opponent = m.get("challenger", {}) if is_defender else m.get("defender", {})
+            opponent_pos = m.get("challenger_position") if is_defender else m.get("defender_position")
+            player_pos = m.get("defender_position") if is_defender else m.get("challenger_position")
+            won = m.get("winner_id") == player_id
+
+            # Parse set scores relative to (player, opponent)
+            sets = []
+            s1_p = m.get("set1_defender") if is_defender else m.get("set1_challenger")
+            s1_o = m.get("set1_challenger") if is_defender else m.get("set1_defender")
+            if s1_p is not None and s1_o is not None:
+                sets.append((s1_p, s1_o))
+
+            s2_p = m.get("set2_defender") if is_defender else m.get("set2_challenger")
+            s2_o = m.get("set2_challenger") if is_defender else m.get("set2_defender")
+            if s2_p is not None and s2_o is not None:
+                sets.append((s2_p, s2_o))
+
+            s3_p = m.get("set3_defender") if is_defender else m.get("set3_challenger")
+            s3_o = m.get("set3_challenger") if is_defender else m.get("set3_defender")
+            if s3_p is not None and s3_o is not None:
+                sets.append((s3_p, s3_o))
+
+            parsed.append({
+                "match_id": m["id"],
+                "won": won,
+                "is_forfeit": m.get("is_forfeit", False),
+                "opponent_name": f"{opponent.get('first_name', '')} {opponent.get('last_name', '')}".strip(),
+                "opponent_pos": opponent_pos,
+                "player_pos": player_pos,
+                "week_number": (m.get("ranking_weeks") or {}).get("week_number"),
+                "phase": (m.get("ranking_weeks") or {}).get("phase"),
+                "scheduled_date": m.get("scheduled_date"),
+                "sets": sets,
+            })
+
+        return parsed
 
     # ═══════════════════════════════════════════════════════════
     # SUB-CATEGORY BOUNDARIES

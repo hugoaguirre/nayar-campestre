@@ -50,11 +50,7 @@ def render_registration_view():
         st.markdown(f"### PARTICIPANTES INSCRITOS ({len(display_df)})")
 
         # Table Component setup
-        component_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "custom_table_component")
-        _table_component = components.declare_component(
-            "custom_table_component",
-            path=component_path
-        )
+        from components.custom_table import _table_component
 
         st.text_input("Filtrar por Nombre o Celular", placeholder="   Buscar en la lista actual...", label_visibility="collapsed", key="live_search_input")
 
