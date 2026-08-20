@@ -134,27 +134,27 @@ div[data-testid="stDialog"] button[title="Close"]:hover {
     animation: streakPulse 2.5s ease-in-out infinite;
 }
 .streak-hot {
-    background: linear-gradient(135deg, rgba(255, 140, 0, 0.25), rgba(255, 80, 0, 0.15));
-    border: 1px solid rgba(255, 170, 0, 0.7);
-    color: #FFBB33;
-    box-shadow: 0 0 10px rgba(255, 140, 0, 0.3), inset 0 0 6px rgba(255, 140, 0, 0.1);
-    text-shadow: 0 0 6px rgba(255, 140, 0, 0.4);
+    background: linear-gradient(135deg, rgba(255, 140, 0, 0.35), rgba(255, 80, 0, 0.2));
+    border: 1px solid rgba(255, 170, 0, 0.85);
+    color: #FFCC44;
+    box-shadow: 0 0 8px rgba(255, 140, 0, 0.5), 0 0 20px rgba(255, 140, 0, 0.35), 0 0 40px rgba(255, 100, 0, 0.15);
+    text-shadow: 0 0 8px rgba(255, 160, 0, 0.7);
 }
 .streak-super {
-    background: linear-gradient(135deg, rgba(204, 255, 0, 0.25), rgba(150, 255, 0, 0.12));
-    border: 1px solid rgba(204, 255, 0, 0.8);
+    background: linear-gradient(135deg, rgba(204, 255, 0, 0.35), rgba(150, 255, 0, 0.18));
+    border: 1px solid rgba(204, 255, 0, 0.9);
     color: #CCFF00;
-    box-shadow: 0 0 14px rgba(204, 255, 0, 0.4), inset 0 0 8px rgba(204, 255, 0, 0.1);
-    text-shadow: 0 0 8px rgba(204, 255, 0, 0.5);
+    box-shadow: 0 0 10px rgba(204, 255, 0, 0.6), 0 0 25px rgba(204, 255, 0, 0.4), 0 0 50px rgba(204, 255, 0, 0.15);
+    text-shadow: 0 0 10px rgba(204, 255, 0, 0.8);
     animation: streakGlow 2s ease-in-out infinite;
 }
 @keyframes streakPulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.85; }
+    50% { opacity: 0.8; }
 }
 @keyframes streakGlow {
-    0%, 100% { box-shadow: 0 0 14px rgba(204, 255, 0, 0.4), inset 0 0 8px rgba(204, 255, 0, 0.1); }
-    50% { box-shadow: 0 0 20px rgba(204, 255, 0, 0.6), inset 0 0 12px rgba(204, 255, 0, 0.15); }
+    0%, 100% { box-shadow: 0 0 10px rgba(204, 255, 0, 0.6), 0 0 25px rgba(204, 255, 0, 0.4), 0 0 50px rgba(204, 255, 0, 0.15); }
+    50% { box-shadow: 0 0 14px rgba(204, 255, 0, 0.8), 0 0 35px rgba(204, 255, 0, 0.55), 0 0 60px rgba(204, 255, 0, 0.25); }
 }
 
 /* ── Sub-category Pills ────────────────────────────────── */
@@ -401,6 +401,7 @@ div[data-testid="stColumn"] div.stButton > button:focus {
         function restoreScroll() {
             const savedY = window.parent.sessionStorage.setItem ? window.parent.sessionStorage.getItem('st_ladder_scroll_pos') : null;
             if (!savedY || parseFloat(savedY) <= 0) return;
+            window.parent.sessionStorage.removeItem('st_ladder_scroll_pos');
             const y = parseFloat(savedY);
             let ticks = 0;
             const timer = setInterval(() => {
@@ -1146,27 +1147,27 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                 animation: streakPulse 2.5s ease-in-out infinite;
             }
             .streak-hot {
-                background: linear-gradient(135deg, rgba(255, 140, 0, 0.25), rgba(255, 80, 0, 0.15));
-                border: 1px solid rgba(255, 170, 0, 0.7);
-                color: #FFBB33;
-                box-shadow: 0 0 10px rgba(255, 140, 0, 0.3), inset 0 0 6px rgba(255, 140, 0, 0.1);
-                text-shadow: 0 0 6px rgba(255, 140, 0, 0.4);
+                background: linear-gradient(135deg, rgba(255, 140, 0, 0.35), rgba(255, 80, 0, 0.2));
+                border: 1px solid rgba(255, 170, 0, 0.85);
+                color: #FFCC44;
+                box-shadow: 0 0 8px rgba(255, 140, 0, 0.5), 0 0 20px rgba(255, 140, 0, 0.35), 0 0 40px rgba(255, 100, 0, 0.15);
+                text-shadow: 0 0 8px rgba(255, 160, 0, 0.7);
             }
             .streak-super {
-                background: linear-gradient(135deg, rgba(204, 255, 0, 0.25), rgba(150, 255, 0, 0.12));
-                border: 1px solid rgba(204, 255, 0, 0.8);
+                background: linear-gradient(135deg, rgba(204, 255, 0, 0.35), rgba(150, 255, 0, 0.18));
+                border: 1px solid rgba(204, 255, 0, 0.9);
                 color: #CCFF00;
-                box-shadow: 0 0 14px rgba(204, 255, 0, 0.4), inset 0 0 8px rgba(204, 255, 0, 0.1);
-                text-shadow: 0 0 8px rgba(204, 255, 0, 0.5);
+                box-shadow: 0 0 10px rgba(204, 255, 0, 0.6), 0 0 25px rgba(204, 255, 0, 0.4), 0 0 50px rgba(204, 255, 0, 0.15);
+                text-shadow: 0 0 10px rgba(204, 255, 0, 0.8);
                 animation: streakGlow 2s ease-in-out infinite;
             }
             @keyframes streakPulse {
                 0%, 100% { opacity: 1; }
-                50% { opacity: 0.85; }
+                50% { opacity: 0.8; }
             }
             @keyframes streakGlow {
-                0%, 100% { box-shadow: 0 0 14px rgba(204, 255, 0, 0.4), inset 0 0 8px rgba(204, 255, 0, 0.1); }
-                50% { box-shadow: 0 0 20px rgba(204, 255, 0, 0.6), inset 0 0 12px rgba(204, 255, 0, 0.15); }
+                0%, 100% { box-shadow: 0 0 10px rgba(204, 255, 0, 0.6), 0 0 25px rgba(204, 255, 0, 0.4), 0 0 50px rgba(204, 255, 0, 0.15); }
+                50% { box-shadow: 0 0 14px rgba(204, 255, 0, 0.8), 0 0 35px rgba(204, 255, 0, 0.55), 0 0 60px rgba(204, 255, 0, 0.25); }
             }
             </style>
             <table class="ladder-table"><tbody>
@@ -1215,16 +1216,19 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                 html_content=table_html, key=f"ladder_table_comp_{cat_id}"
             )
             if component_val:
-                clicked_id = str(component_val).split("_")[0]
-                matched = next(
-                    (e for e in ladder if e["player_id"] == clicked_id), None
-                )
-                if matched:
-                    m_pos = matched["position"]
-                    m_p = matched.get("players", {}) or {}
-                    m_name = f"{m_p.get('first_name', '')} {m_p.get('last_name', '')}".strip()
-                    m_subcat = _get_subcat_label(m_pos, ranges)
-                    show_player_stats_modal(clicked_id, m_name, m_pos, m_subcat)
+                state_key = f"_last_ladder_click_{cat_id}"
+                if st.session_state.get(state_key) != component_val:
+                    st.session_state[state_key] = component_val
+                    clicked_id = str(component_val).split("_")[0]
+                    matched = next(
+                        (e for e in ladder if e["player_id"] == clicked_id), None
+                    )
+                    if matched:
+                        m_pos = matched["position"]
+                        m_p = matched.get("players", {}) or {}
+                        m_name = f"{m_p.get('first_name', '')} {m_p.get('last_name', '')}".strip()
+                        m_subcat = _get_subcat_label(m_pos, ranges)
+                        show_player_stats_modal(clicked_id, m_name, m_pos, m_subcat)
 
 # ── Footer ────────────────────────────────────────────────────
 st.markdown(

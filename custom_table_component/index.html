@@ -86,6 +86,7 @@
       try {
         const savedY = window.parent.sessionStorage.getItem('st_ladder_scroll_pos');
         if (savedY && parseFloat(savedY) > 0) {
+          window.parent.sessionStorage.removeItem('st_ladder_scroll_pos');
           let ticks = 0;
           const timer = setInterval(() => {
             applyScrollY(savedY);
