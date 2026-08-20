@@ -122,12 +122,12 @@ div[data-testid="stDialog"] button[title="Close"]:hover {
 /* ── Sub-category Pills ────────────────────────────────── */
 .sc-pill {
     display: inline-block;
-    padding: 2px 10px;
+    padding: 4px 14px;
     border-radius: 20px;
     font-family: 'Montserrat', sans-serif;
-    font-weight: 700;
-    font-size: 0.6rem;
-    letter-spacing: 1px;
+    font-weight: 800;
+    font-size: 0.8rem;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
 }
 .sc-A, .sc-AA  { background: #CCFF00; color: #003319; }
@@ -147,7 +147,7 @@ div[data-testid="stDialog"] button[title="Close"]:hover {
 .subcat-header .label {
     font-family: 'Montserrat', sans-serif;
     font-weight: 800;
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     letter-spacing: 3px;
     color: #CCFF00;
     text-transform: uppercase;
@@ -582,9 +582,9 @@ def show_player_stats_modal(player_id: str, name: str, position: int, subcategor
     form_pills = ""
     for m in matches:
         if m["won"]:
-            form_pills += '<span style="background:rgba(204,255,0,0.15); border:1px solid #CCFF00; color:#CCFF00; padding:2px 7px; border-radius:12px; font-weight:800; font-size:0.7rem; margin-right:3px;">🟢 V</span>'
+            form_pills += '<span style="color:#CCFF00; font-size:0.85rem; margin-right:3px;" title="Victoria">●</span>'
         else:
-            form_pills += '<span style="background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#ef4444; padding:2px 7px; border-radius:12px; font-weight:800; font-size:0.7rem; margin-right:3px;">🔴 D</span>'
+            form_pills += '<span style="color:#ef4444; font-size:0.85rem; margin-right:3px;" title="Derrota">●</span>'
 
     st.markdown(
         f"""
