@@ -626,20 +626,57 @@ class RankingService:
         swapped = False
         if winner_id == challenger_id:
             # Challenger wins → SWAP positions
-            # Use sentinel position to avoid unique constraint violation
-            supabase.table("ranking_ladders").update(
-                {"position": -1}
-            ).eq("category_id", category_id).eq("player_id", challenger_id).execute()
+            try:
+                # Re-fetch CURRENT positions from the ladder (they may have
+                # shifted if earlier matches in the same batch triggered swaps).
+                def_row = (
+                    supabase.table("ranking_ladders")
+                    .select("id, position")
+                    .eq("category_id", category_id)
+                    .eq("player_id", defender_id)
+                    .limit(1)
+                    .execute()
+                )
+                chal_row = (
+                    supabase.table("ranking_ladders")
+                    .select("id, position")
+                    .eq("category_id", category_id)
+                    .eq("player_id", challenger_id)
+                    .limit(1)
+                    .execute()
+                )
 
-            supabase.table("ranking_ladders").update(
-                {"position": challenger_pos}
-            ).eq("category_id", category_id).eq("player_id", defender_id).execute()
+                if not def_row.data or not chal_row.data:
+                    print(f"Swap skipped — player not found in ladder for match {match_id}")
+                    return {"swapped": False, "error": "Player not found in ladder"}
 
-            supabase.table("ranking_ladders").update(
-                {"position": defender_pos}
-            ).eq("category_id", category_id).eq("player_id", challenger_id).execute()
+                live_def_pos = def_row.data[0]["position"]
+                live_chal_pos = chal_row.data[0]["position"]
+                def_entry_id = def_row.data[0]["id"]
+                chal_entry_id = chal_row.data[0]["id"]
 
-            swapped = True
+                # Clean up any stale sentinel positions from interrupted swaps
+                supabase.table("ranking_ladders").delete().eq(
+                    "category_id", category_id
+                ).eq("position", -1).execute()
+
+                # Use sentinel position to avoid unique constraint violation
+                supabase.table("ranking_ladders").update(
+                    {"position": -1}
+                ).eq("id", chal_entry_id).execute()
+
+                supabase.table("ranking_ladders").update(
+                    {"position": live_chal_pos}
+                ).eq("id", def_entry_id).execute()
+
+                supabase.table("ranking_ladders").update(
+                    {"position": live_def_pos}
+                ).eq("id", chal_entry_id).execute()
+
+                swapped = True
+            except Exception as e:
+                print(f"Position swap error for match {match_id}: {e}")
+                return {"swapped": False, "error": f"Position swap failed: {e}"}
 
         return {
             "swapped": swapped,
@@ -831,18 +868,21 @@ class RankingService:
                 "set3_challenger": draft.get("set3_challenger"),
             }
 
-            result = RankingService.apply_match_result(
-                match_id,
-                draft["winner_id"],
-                scores,
-                is_forfeit=draft.get("is_forfeit", False),
-                entered_by=entered_by,
-            )
+            try:
+                result = RankingService.apply_match_result(
+                    match_id,
+                    draft["winner_id"],
+                    scores,
+                    is_forfeit=draft.get("is_forfeit", False),
+                    entered_by=entered_by,
+                )
 
-            if result.get("error"):
-                errors.append(f"Match {match_id}: {result['error']}")
-            else:
-                committed += 1
+                if result.get("error"):
+                    errors.append(f"Match {match_id}: {result['error']}")
+                else:
+                    committed += 1
+            except Exception as e:
+                errors.append(f"Match {match_id}: {e}")
 
             # Delete the draft after successful commit
             try:
