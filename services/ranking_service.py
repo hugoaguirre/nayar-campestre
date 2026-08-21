@@ -290,6 +290,29 @@ class RankingService:
         return next_num, next_phase
 
     @staticmethod
+    def get_weeks(category_id, limit=10):
+        """
+        Fetch recent ranking weeks for a category, newest first.
+
+        Args:
+            category_id: UUID of the ranking category.
+            limit: max number of weeks to return (default 10).
+
+        Returns:
+            List of ranking_weeks rows ordered by week_number descending.
+        """
+        supabase = get_supabase_client()
+        resp = (
+            supabase.table("ranking_weeks")
+            .select("*")
+            .eq("category_id", category_id)
+            .order("week_number", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return resp.data or []
+
+    @staticmethod
     def create_week(category_id, week_number, phase, config):
         """
         Create a ranking week with schedule configuration.
