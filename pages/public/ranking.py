@@ -900,67 +900,6 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                         key=f"match_search_{cat_id}",
                     )
 
-                # ── Inject incremental search JS via components.html ──
-                import streamlit.components.v1 as _stc
-                _stc.html("""
-                <script>
-                (function() {
-                    try {
-                        const pDoc = window.parent.document;
-                        const store = window.parent.sessionStorage;
-                        const SEL  = 'input[placeholder*="Buscar jugador"]';
-
-                        /* Attach blur-on-type to every new search input */
-                        function hook() {
-                            pDoc.querySelectorAll(SEL).forEach(input => {
-                                if (input._ls) return;
-                                input._ls = true;
-                                let t = null;
-                                input.addEventListener('input', function() {
-                                    clearTimeout(t);
-                                    t = setTimeout(() => {
-                                        store.setItem('_srch_rf', '1');
-                                        input.blur();
-                                    }, 300);
-                                });
-                            });
-                        }
-
-                        /* Re-focus after Streamlit rerun — retry several
-                           times because React reconciliation may replace
-                           the DOM element after our first focus attempt.
-                           Always place cursor at END of current value to
-                           avoid stale-position bugs. */
-                        function tryRefocus() {
-                            if (store.getItem('_srch_rf') !== '1') return;
-                            store.removeItem('_srch_rf');
-                            store.removeItem('_srch_cp');
-
-                            let done = false;
-                            function doFocus() {
-                                if (done) return;
-                                const el = pDoc.querySelector(SEL);
-                                if (!el) return;
-                                el.focus();
-                                const len = el.value.length;
-                                try { el.setSelectionRange(len, len); }
-                                catch(e) {}
-                                if (pDoc.activeElement === el) done = true;
-                            }
-                            [100, 250, 500, 800].forEach(
-                                d => setTimeout(doFocus, d));
-                        }
-
-                        hook();
-                        tryRefocus();
-                        new MutationObserver(() => setTimeout(() => {
-                            hook(); tryRefocus();
-                        }, 60)).observe(pDoc.body,
-                            {childList:true, subtree:true});
-                    } catch(e) {}
-                })();
-                </script>
-                """, height=0)
 
                 # Filter matches by player name when a search query is present
                 if _search_query and _search_query.strip():
