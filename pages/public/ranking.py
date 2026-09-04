@@ -856,22 +856,6 @@ if not categories:
 
 cat_names = [c["name"] for c in categories]
 
-# ── Phase Banner (rendered once above tabs) ───────────────────
-_first_week = _fetch_current_week(categories[0]["id"])
-if _first_week:
-    _phase = _first_week["phase"]
-    _wn = _first_week["week_number"]
-    _phase_text = "⚔️ CHALLENGE" if _phase == "challenge" else "🛡️ DEFEND"
-    st.markdown(
-        f"""
-    <div class="phase-banner">
-        <div class="week-label">SEMANA {_wn}</div>
-        <div class="phase-text" style="color:#ffffff;">{_phase_text}</div>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-
 cat_tabs = st.tabs([n.upper() for n in cat_names])
 
 for cat_idx, cat_tab in enumerate(cat_tabs):
@@ -879,10 +863,25 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
     cat_id = selected_cat["id"]
 
     with cat_tab:
+        # ── Phase Banner (per-category) ────────────────────────
+        current_week = _fetch_current_week(cat_id)
+        if current_week:
+            _phase = current_week["phase"]
+            _wn = current_week["week_number"]
+            _phase_text = "⚔️ CHALLENGE" if _phase == "challenge" else "🛡️ DEFEND"
+            st.markdown(
+                f"""
+            <div class="phase-banner">
+                <div class="week-label">SEMANA {_wn}</div>
+                <div class="phase-text" style="color:#ffffff;">{_phase_text}</div>
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
+
         # ── Fetch Data ────────────────────────────────────────
         ladder = _fetch_ladder(cat_id)
         ranges = _fetch_subcat_ranges(cat_id)
-        current_week = _fetch_current_week(cat_id)
 
         # ── Weekly Matches Carousel ───────────────────────────
         if current_week:
