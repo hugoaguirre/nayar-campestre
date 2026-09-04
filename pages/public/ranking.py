@@ -380,59 +380,41 @@ div[data-testid="stColumn"] div.stButton > button:focus {
     text-transform: uppercase;
     margin: 2rem 0 0.8rem 0;
 }
+
+/* ── Match Search Input ───────────────────────────────── */
+/* Strip the outer Streamlit wrapper so there's no double container */
+div[data-testid="stTextInput"]:has(input[placeholder*="Buscar jugador"]) {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+div[data-testid="stTextInput"]:has(input[placeholder*="Buscar jugador"]) > div {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+div[data-testid="stTextInput"] input[placeholder*="Buscar jugador"] {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 20px !important;
+    color: #ffffff !important;
+    font-family: 'Inter', sans-serif !important;
+    font-size: 0.8rem !important;
+    padding: 0.45rem 1rem !important;
+    transition: all 0.25s ease !important;
+}
+div[data-testid="stTextInput"] input[placeholder*="Buscar jugador"]::placeholder {
+    color: rgba(255, 255, 255, 0.3) !important;
+    font-style: italic !important;
+}
+div[data-testid="stTextInput"] input[placeholder*="Buscar jugador"]:focus {
+    border-color: #CCFF00 !important;
+    box-shadow: 0 0 12px rgba(204, 255, 0, 0.2) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
 </style>
-
-<script>
-(function() {
-    try {
-        function getTargets() {
-            const targets = [];
-            const pDoc = window.parent.document;
-            const m = pDoc.querySelector('[data-testid="stMain"]') ||
-                      pDoc.querySelector('.stAppViewContainer') ||
-                      pDoc.querySelector('section.main');
-            if (m) targets.push(m);
-            if (window.parent) targets.push(window.parent);
-            if (pDoc.documentElement) targets.push(pDoc.documentElement);
-            if (pDoc.body) targets.push(pDoc.body);
-            return targets;
-        }
-
-        function restoreScroll() {
-            const savedY = window.parent.sessionStorage.setItem ? window.parent.sessionStorage.getItem('st_ladder_scroll_pos') : null;
-            if (!savedY || parseFloat(savedY) <= 0) return;
-            window.parent.sessionStorage.removeItem('st_ladder_scroll_pos');
-            const y = parseFloat(savedY);
-            let ticks = 0;
-            const timer = setInterval(() => {
-                getTargets().forEach(t => {
-                    try {
-                        if (t.scrollTo) t.scrollTo({ top: y, behavior: 'instant' });
-                        if (t.scrollTop !== undefined) t.scrollTop = y;
-                    } catch(e) {}
-                });
-                ticks++;
-                if (ticks >= 25) clearInterval(timer);
-            }, 30);
-        }
-
-        function savePos() {
-            for (const t of getTargets()) {
-                const y = t.scrollTop || t.scrollY || t.pageYOffset;
-                if (y && y > 0) {
-                    window.parent.sessionStorage.setItem('st_ladder_scroll_pos', y);
-                    break;
-                }
-            }
-        }
-
-        restoreScroll();
-        getTargets().forEach(t => {
-            if (t.addEventListener) t.addEventListener('scroll', savePos, { passive: true });
-        });
-    } catch(e) {}
-})();
-</script>
 """,
     unsafe_allow_html=True,
 )
@@ -910,6 +892,112 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                     '<p class="section-title">📋 Partidos de la Semana</p>',
                     unsafe_allow_html=True,
                 )
+                _search_col, _ = st.columns([1, 2])
+                with _search_col:
+                    _search_query = st.text_input(
+                        "🔍",
+                        placeholder="Buscar jugador…",
+                        label_visibility="collapsed",
+                        key=f"match_search_{cat_id}",
+                    )
+
+                # ── Inject incremental search JS via components.html ──
+                import streamlit.components.v1 as _stc
+                _stc.html("""
+                <script>
+                (function() {
+                    try {
+                        const pDoc = window.parent.document;
+                        const store = window.parent.sessionStorage;
+                        const SEL  = 'input[placeholder*="Buscar jugador"]';
+
+                        /* Attach blur-on-type to every new search input */
+                        function hook() {
+                            pDoc.querySelectorAll(SEL).forEach(input => {
+                                if (input._ls) return;
+                                input._ls = true;
+                                let t = null;
+                                input.addEventListener('input', function() {
+                                    clearTimeout(t);
+                                    t = setTimeout(() => {
+                                        store.setItem('_srch_rf', '1');
+                                        input.blur();
+                                    }, 300);
+                                });
+                            });
+                        }
+
+                        /* Re-focus after Streamlit rerun — retry several
+                           times because React reconciliation may replace
+                           the DOM element after our first focus attempt.
+                           Always place cursor at END of current value to
+                           avoid stale-position bugs. */
+                        function tryRefocus() {
+                            if (store.getItem('_srch_rf') !== '1') return;
+                            store.removeItem('_srch_rf');
+                            store.removeItem('_srch_cp');
+
+                            let done = false;
+                            function doFocus() {
+                                if (done) return;
+                                const el = pDoc.querySelector(SEL);
+                                if (!el) return;
+                                el.focus();
+                                const len = el.value.length;
+                                try { el.setSelectionRange(len, len); }
+                                catch(e) {}
+                                if (pDoc.activeElement === el) done = true;
+                            }
+                            [100, 250, 500, 800].forEach(
+                                d => setTimeout(doFocus, d));
+                        }
+
+                        hook();
+                        tryRefocus();
+                        new MutationObserver(() => setTimeout(() => {
+                            hook(); tryRefocus();
+                        }, 60)).observe(pDoc.body,
+                            {childList:true, subtree:true});
+                    } catch(e) {}
+                })();
+                </script>
+                """, height=0)
+
+                # Filter matches by player name when a search query is present
+                if _search_query and _search_query.strip():
+                    import unicodedata
+
+                    def _normalize(text: str) -> str:
+                        """Lowercase + strip accents for accent-insensitive search."""
+                        nfkd = unicodedata.normalize("NFKD", text.lower())
+                        return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+                    _q = _normalize(_search_query.strip())
+                    _filtered = []
+                    for _m in week_matches:
+                        _def = _m.get("defender", {}) or {}
+                        _chal = _m.get("challenger", {}) or {}
+                        _d_full = f"{_def.get('first_name', '')} {_def.get('last_name', '')}".strip()
+                        _c_full = f"{_chal.get('first_name', '')} {_chal.get('last_name', '')}".strip()
+                        if _q in _normalize(_d_full) or _q in _normalize(_c_full):
+                            _filtered.append(_m)
+                    week_matches = _filtered
+
+                    if not week_matches:
+                        st.markdown(
+                            f"""
+                        <div style="text-align:center; padding:1.2rem 1rem;
+                                    background:rgba(255,255,255,0.04);
+                                    border:1px dashed rgba(255,255,255,0.12);
+                                    border-radius:10px; margin-bottom:1rem;">
+                            <p style="font-family:'Montserrat',sans-serif; font-size:0.8rem;
+                                      color:rgba(255,255,255,0.35); margin:0; letter-spacing:1px;">
+                                🔍 Sin resultados para "<span style="color:#CCFF00;">{_search_query}</span>"
+                            </p>
+                        </div>
+                        """,
+                            unsafe_allow_html=True,
+                        )
 
                 carousel_cards = ""
                 for m in week_matches:
