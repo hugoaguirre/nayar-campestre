@@ -644,7 +644,6 @@ def apply_wimbledon_ui():
 
         let lastUserTapTime = 0;
         let lastUserTapTarget = null;
-        let modalJustClosedTime = 0;
 
         function markUserInteraction(e) {
             lastUserTapTime = Date.now();
@@ -657,33 +656,15 @@ def apply_wimbledon_ui():
         doc.addEventListener('mousedown', markUserInteraction, { capture: true, passive: true });
         doc.addEventListener('touchstart', markUserInteraction, { capture: true, passive: true });
 
-        // Detect modal dialog unmount to block browser fallback focus to search box
-        try {
-            let wasModalPresent = false;
-            const observer = new MutationObserver(() => {
-                const hasModal = !!doc.querySelector('[data-testid="stDialog"], [data-testid="stModal"]');
-                if (wasModalPresent && !hasModal) {
-                    modalJustClosedTime = Date.now();
-                    if (doc.activeElement) {
-                        try { doc.activeElement.blur(); } catch(e) {}
-                    }
-                    restoreSavedScroll();
-                }
-                wasModalPresent = hasModal;
-            });
-            observer.observe(doc.body, { childList: true, subtree: true });
-        } catch(e) {}
-
-        // Focus Interceptor: Blur inputs if focus was NOT triggered by direct user click or if modal just closed
+        // Focus Interceptor: Blur inputs if focus was NOT triggered by direct user click
         doc.addEventListener('focusin', function(e) {
             const target = e.target;
             if (!target) return;
             const tag = (target.tagName || '').toUpperCase();
             if (tag === 'INPUT' || tag === 'TEXTAREA') {
                 const timeSinceTap = Date.now() - lastUserTapTime;
-                const timeSinceModalClose = Date.now() - modalJustClosedTime;
                 const isDirectUserClick = timeSinceTap < 500 && (lastUserTapTarget === target || target.contains(lastUserTapTarget));
-                if (!isDirectUserClick || timeSinceModalClose < 1000) {
+                if (!isDirectUserClick) {
                     setTimeout(() => {
                         try {
                             if (doc.activeElement === target) {
