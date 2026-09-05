@@ -644,6 +644,7 @@ def apply_wimbledon_ui():
 
         let lastUserTapTime = 0;
         let lastUserTapTarget = null;
+        let modalJustClosedTime = 0;
 
         function markUserInteraction(e) {
             lastUserTapTime = Date.now();
@@ -656,15 +657,33 @@ def apply_wimbledon_ui():
         doc.addEventListener('mousedown', markUserInteraction, { capture: true, passive: true });
         doc.addEventListener('touchstart', markUserInteraction, { capture: true, passive: true });
 
-        // Focus Interceptor: Blur inputs if focus was NOT triggered by direct user click
+        // Detect modal dialog unmount to block browser fallback focus to search box
+        try {
+            let wasModalPresent = false;
+            const observer = new MutationObserver(() => {
+                const hasModal = !!doc.querySelector('[data-testid="stDialog"], [data-testid="stModal"]');
+                if (wasModalPresent && !hasModal) {
+                    modalJustClosedTime = Date.now();
+                    if (doc.activeElement) {
+                        try { doc.activeElement.blur(); } catch(e) {}
+                    }
+                    restoreSavedScroll();
+                }
+                wasModalPresent = hasModal;
+            });
+            observer.observe(doc.body, { childList: true, subtree: true });
+        } catch(e) {}
+
+        // Focus Interceptor: Blur inputs if focus was NOT triggered by direct user click or if modal just closed
         doc.addEventListener('focusin', function(e) {
             const target = e.target;
             if (!target) return;
             const tag = (target.tagName || '').toUpperCase();
             if (tag === 'INPUT' || tag === 'TEXTAREA') {
                 const timeSinceTap = Date.now() - lastUserTapTime;
+                const timeSinceModalClose = Date.now() - modalJustClosedTime;
                 const isDirectUserClick = timeSinceTap < 500 && (lastUserTapTarget === target || target.contains(lastUserTapTarget));
-                if (!isDirectUserClick) {
+                if (!isDirectUserClick || timeSinceModalClose < 1000) {
                     setTimeout(() => {
                         try {
                             if (doc.activeElement === target) {
@@ -692,15 +711,22 @@ def apply_wimbledon_ui():
         // Restore scroll position across Streamlit reruns (e.g. closing dialogs, search, tab clicks)
         function restoreSavedScroll() {
             try {
-                const raw = window.sessionStorage.getItem('st_app_saved_scroll');
-                if (raw) {
-                    const savedY = parseFloat(raw);
-                    if (savedY > 0) {
-                        const mainSec = doc.querySelector('[data-testid="stMain"]') || doc.querySelector('.stAppViewContainer');
-                        if (mainSec) mainSec.scrollTop = savedY;
-                        if (doc.documentElement) doc.documentElement.scrollTop = savedY;
-                        if (doc.body) doc.body.scrollTop = savedY;
-                    }
+                let savedY = 0;
+                const rawApp = window.sessionStorage.getItem('st_app_saved_scroll');
+                if (rawApp) savedY = parseFloat(rawApp);
+
+                const rawLadder = window.sessionStorage.getItem('st_ladder_scroll_pos');
+                if (rawLadder) {
+                    const parts = rawLadder.split('|');
+                    const ly = parseFloat(parts[0]);
+                    if (ly > 0) savedY = ly;
+                }
+
+                if (savedY > 0) {
+                    const mainSec = doc.querySelector('[data-testid="stMain"]') || doc.querySelector('.stAppViewContainer');
+                    if (mainSec && Math.abs(mainSec.scrollTop - savedY) > 5) mainSec.scrollTop = savedY;
+                    if (doc.documentElement && Math.abs(doc.documentElement.scrollTop - savedY) > 5) doc.documentElement.scrollTop = savedY;
+                    if (doc.body && Math.abs(doc.body.scrollTop - savedY) > 5) doc.body.scrollTop = savedY;
                 }
             } catch(e) {}
         }
@@ -708,7 +734,8 @@ def apply_wimbledon_ui():
         restoreSavedScroll();
         setTimeout(restoreSavedScroll, 30);
         setTimeout(restoreSavedScroll, 100);
-        setTimeout(restoreSavedScroll, 250);
+        setTimeout(restoreSavedScroll, 300);
+        setTimeout(restoreSavedScroll, 600);
     })();
     </script>
         """,

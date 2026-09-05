@@ -86,17 +86,19 @@
       try {
         const raw = window.parent.sessionStorage.getItem('st_ladder_scroll_pos');
         if (!raw) return;
-        window.parent.sessionStorage.removeItem('st_ladder_scroll_pos');
         const parts = raw.split('|');
         const savedY = parseFloat(parts[0]);
         const savedTime = parts[1] ? parseInt(parts[1], 10) : Date.now();
-        if (savedY > 0 && (Date.now() - savedTime < 2000)) {
+        // Allow up to 60 seconds of modal inspection time
+        if (savedY > 0 && (Date.now() - savedTime < 60000)) {
           let ticks = 0;
           const timer = setInterval(() => {
             applyScrollY(savedY);
             ticks++;
-            if (ticks >= 5) clearInterval(timer);
+            if (ticks >= 8) clearInterval(timer);
           }, 30);
+        } else {
+          window.parent.sessionStorage.removeItem('st_ladder_scroll_pos');
         }
       } catch (e) { }
     }
