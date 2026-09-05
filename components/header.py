@@ -28,14 +28,10 @@ def render_hero_header(t_name, l_logo, r_logo):
                 let ticking = false;
                 
                 function applyEffects() {
-                    // To combad Streamlit DOM changes, find the maximum scroll depth of ANY element on screen
+                    // Find maximum scroll depth of main scrollable containers
                     let maxScroll = doc.documentElement.scrollTop || doc.body.scrollTop || 0;
-                    
-                    // Also check typical Streamlit container names and all generic scrollable divs
-                    const containers = doc.querySelectorAll('.main, section, div');
-                    containers.forEach(c => {
-                        if (c && c.scrollTop > maxScroll) maxScroll = c.scrollTop;
-                    });
+                    const mainSec = doc.querySelector('[data-testid="stMain"]') || doc.querySelector('.stAppViewContainer') || doc.querySelector('section.main');
+                    if (mainSec && mainSec.scrollTop > maxScroll) maxScroll = mainSec.scrollTop;
                     
                     const blurValue = Math.min(maxScroll / 20, 10);
                     const opacityValue = Math.max(1 - (maxScroll / 150), 0.2);

@@ -199,8 +199,7 @@ def show_edit_player_dialog(idx):
     components.html(
         """<script>
             const doc = window.parent.document;
-            setTimeout(() => { if (doc.activeElement) { doc.activeElement.blur(); } }, 50);
-            setTimeout(() => { if (doc.activeElement) { doc.activeElement.blur(); } }, 150);
+            setTimeout(() => { if (doc.activeElement && (doc.activeElement.tagName === 'INPUT' || doc.activeElement.tagName === 'TEXTAREA')) { doc.activeElement.blur(); } }, 50);
         </script>""",
         height=0,
     )
@@ -273,8 +272,7 @@ def show_add_new_socio_dialog():
     components.html(
         """<script>
             const doc = window.parent.document;
-            setTimeout(() => { if (doc.activeElement) { doc.activeElement.blur(); } }, 50);
-            setTimeout(() => { if (doc.activeElement) { doc.activeElement.blur(); } }, 150);
+            setTimeout(() => { if (doc.activeElement && (doc.activeElement.tagName === 'INPUT' || doc.activeElement.tagName === 'TEXTAREA')) { doc.activeElement.blur(); } }, 50);
         </script>""",
         height=0,
     )
@@ -341,8 +339,7 @@ def show_add_player_dialog():
     components.html(
         """<script>
             const doc = window.parent.document;
-            setTimeout(() => { if (doc.activeElement) { doc.activeElement.blur(); } }, 50);
-            setTimeout(() => { if (doc.activeElement) { doc.activeElement.blur(); } }, 150);
+            setTimeout(() => { if (doc.activeElement && (doc.activeElement.tagName === 'INPUT' || doc.activeElement.tagName === 'TEXTAREA')) { doc.activeElement.blur(); } }, 50);
         </script>""",
         height=0,
     )

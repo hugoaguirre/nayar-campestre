@@ -904,45 +904,7 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                         key=f"match_search_{cat_id}",
                     )
 
-                import streamlit.components.v1 as _stc
-                _stc.html("""
-                <script>
-                (function() {
-                    try {
-                        const pDoc = window.parent.document;
-                        const SEL = 'input[placeholder*="Buscar jugador"]';
 
-                        function attachClearListener() {
-                            pDoc.querySelectorAll(SEL).forEach(input => {
-                                if (input._clearHooked) return;
-                                input._clearHooked = true;
-                                input.setAttribute('type', 'search');
-                                
-                                let hasValue = (input.value || '').trim().length > 0;
-                                
-                                function checkAndBlurIfEmpty() {
-                                    const currentVal = (input.value || '').trim();
-                                    if (currentVal.length === 0 && hasValue) {
-                                        hasValue = false;
-                                        setTimeout(() => {
-                                            input.blur();
-                                        }, 60);
-                                    } else if (currentVal.length > 0) {
-                                        hasValue = true;
-                                    }
-                                }
-
-                                input.addEventListener('input', checkAndBlurIfEmpty);
-                                input.addEventListener('search', checkAndBlurIfEmpty);
-                            });
-                        }
-
-                        attachClearListener();
-                        new MutationObserver(attachClearListener).observe(pDoc.body, {childList: true, subtree: true});
-                    } catch(e) {}
-                })();
-                </script>
-                """, height=0)
 
 
                 # Filter matches by player name when a search query is present

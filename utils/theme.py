@@ -637,6 +637,80 @@ def apply_wimbledon_ui():
             color: #ff2b2b !important;
         }
     </style>
+    <script>
+    (function() {
+        if (window._wimbledonGuardInjected) return;
+        window._wimbledonGuardInjected = true;
+
+        let lastUserTapTime = 0;
+        let lastUserTapTarget = null;
+
+        function markUserInteraction(e) {
+            lastUserTapTime = Date.now();
+            lastUserTapTarget = e.target;
+        }
+
+        const doc = window.parent ? window.parent.document : document;
+
+        doc.addEventListener('pointerdown', markUserInteraction, { capture: true, passive: true });
+        doc.addEventListener('mousedown', markUserInteraction, { capture: true, passive: true });
+        doc.addEventListener('touchstart', markUserInteraction, { capture: true, passive: true });
+
+        // Focus Interceptor: Blur inputs if focus was NOT triggered by direct user click
+        doc.addEventListener('focusin', function(e) {
+            const target = e.target;
+            if (!target) return;
+            const tag = (target.tagName || '').toUpperCase();
+            if (tag === 'INPUT' || tag === 'TEXTAREA') {
+                const timeSinceTap = Date.now() - lastUserTapTime;
+                const isDirectUserClick = timeSinceTap < 500 && (lastUserTapTarget === target || target.contains(lastUserTapTarget));
+                if (!isDirectUserClick) {
+                    setTimeout(() => {
+                        try {
+                            if (doc.activeElement === target) {
+                                target.blur();
+                            }
+                        } catch(err) {}
+                    }, 0);
+                }
+            }
+        }, true);
+
+        // Track and save active scroll depth on parent scroll container
+        function saveCurrentScroll() {
+            try {
+                const mainSec = doc.querySelector('[data-testid="stMain"]') || doc.querySelector('.stAppViewContainer');
+                const y = mainSec ? mainSec.scrollTop : (doc.documentElement.scrollTop || doc.body.scrollTop || 0);
+                if (y > 0) {
+                    window.sessionStorage.setItem('st_app_saved_scroll', y.toString());
+                }
+            } catch(e) {}
+        }
+
+        doc.addEventListener('scroll', saveCurrentScroll, { capture: true, passive: true });
+
+        // Restore scroll position across Streamlit reruns (e.g. closing dialogs, search, tab clicks)
+        function restoreSavedScroll() {
+            try {
+                const raw = window.sessionStorage.getItem('st_app_saved_scroll');
+                if (raw) {
+                    const savedY = parseFloat(raw);
+                    if (savedY > 0) {
+                        const mainSec = doc.querySelector('[data-testid="stMain"]') || doc.querySelector('.stAppViewContainer');
+                        if (mainSec) mainSec.scrollTop = savedY;
+                        if (doc.documentElement) doc.documentElement.scrollTop = savedY;
+                        if (doc.body) doc.body.scrollTop = savedY;
+                    }
+                }
+            } catch(e) {}
+        }
+
+        restoreSavedScroll();
+        setTimeout(restoreSavedScroll, 30);
+        setTimeout(restoreSavedScroll, 100);
+        setTimeout(restoreSavedScroll, 250);
+    })();
+    </script>
         """,
         unsafe_allow_html=True,
     )

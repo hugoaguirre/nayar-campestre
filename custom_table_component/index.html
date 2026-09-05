@@ -84,14 +84,18 @@
 
     function enforceSavedScroll() {
       try {
-        const savedY = window.parent.sessionStorage.getItem('st_ladder_scroll_pos');
-        if (savedY && parseFloat(savedY) > 0) {
-          window.parent.sessionStorage.removeItem('st_ladder_scroll_pos');
+        const raw = window.parent.sessionStorage.getItem('st_ladder_scroll_pos');
+        if (!raw) return;
+        window.parent.sessionStorage.removeItem('st_ladder_scroll_pos');
+        const parts = raw.split('|');
+        const savedY = parseFloat(parts[0]);
+        const savedTime = parts[1] ? parseInt(parts[1], 10) : Date.now();
+        if (savedY > 0 && (Date.now() - savedTime < 2000)) {
           let ticks = 0;
           const timer = setInterval(() => {
             applyScrollY(savedY);
             ticks++;
-            if (ticks >= 25) clearInterval(timer);
+            if (ticks >= 5) clearInterval(timer);
           }, 30);
         }
       } catch (e) { }
@@ -114,30 +118,59 @@
 
         const table = root.querySelector('.luxury-wimbledon-table') || root.querySelector('.ladder-table');
         if (table) {
-          // 1. Attach row click listeners
+          // 1. Attach row click listeners with touch drag detection to avoid false clicks
           const tbody = table.querySelector("tbody") || table;
           if (tbody) {
-            tbody.addEventListener('click', (e) => {
-              const tr = e.target.closest('tr');
-              if (tr) {
-                // Save scroll position before emitting click event
-                try {
-                  const y = getCurrentScrollY();
-                  if (y > 0) {
-                    window.parent.sessionStorage.setItem('st_ladder_scroll_pos', y);
-                  }
-                } catch (err) { }
+            let startX = 0, startY = 0, isDragging = false;
 
+            tbody.addEventListener('touchstart', (e) => {
+              if (e.touches && e.touches.length > 0) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                isDragging = false;
+              }
+            }, { passive: true });
+
+            tbody.addEventListener('touchmove', (e) => {
+              if (e.touches && e.touches.length > 0) {
+                const moveX = e.touches[0].clientX;
+                const moveY = e.touches[0].clientY;
+                if (Math.hypot(moveX - startX, moveY - startY) > 8) {
+                  isDragging = true;
+                }
+              }
+            }, { passive: true });
+
+            tbody.addEventListener('click', (e) => {
+              if (isDragging) {
+                isDragging = false;
+                return;
+              }
+
+              const tr = e.target.closest('tr');
+              if (tr && !tr.classList.contains('subcat-row') && tr.closest('tbody')) {
+                let targetId = null;
                 if (tr.hasAttribute('data-player-id')) {
-                  sendValue(tr.getAttribute('data-player-id') + '_' + Date.now());
+                  targetId = tr.getAttribute('data-player-id');
                 } else {
                   const firstTd = tr.firstElementChild;
                   if (firstTd) {
                     const idSpan = firstTd.querySelector('span.row-id');
                     if (idSpan && idSpan.hasAttribute('data-idx')) {
-                      sendValue(idSpan.getAttribute('data-idx') + '_' + Date.now());
+                      targetId = idSpan.getAttribute('data-idx');
                     }
                   }
+                }
+
+                if (targetId) {
+                  try {
+                    const y = getCurrentScrollY();
+                    if (y > 0) {
+                      window.parent.sessionStorage.setItem('st_ladder_scroll_pos', y.toString() + '|' + Date.now().toString());
+                    }
+                  } catch (err) { }
+
+                  sendValue(targetId + '_' + Date.now());
                 }
               }
             });
