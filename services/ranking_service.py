@@ -342,18 +342,39 @@ class RankingService:
         return resp.data[0] if resp.data else None
 
     @staticmethod
-    def schedule_ranking_week(week_id, pairings, week_data):
+    def schedule_ranking_week(week_id, pairings, week_data, preview_matches=None):
         """
         Assign matches to time slots across the week (Tue-Sun).
-        Simple sequential fill — no penalty engine needed since each
-        player plays at most once per week.
+        If preview_matches is provided, inserts those exact previewed match pairings
+        and slot allocations. Otherwise, dynamically builds slots and shuffles pairings.
 
         Args:
-            week_id:   UUID of the ranking_week.
-            pairings:  list of (defender_id, def_pos, challenger_id, chal_pos).
-            week_data: dict with schedule config from ranking_weeks row.
+            week_id:          UUID of the ranking_week.
+            pairings:         list of (defender_id, def_pos, challenger_id, chal_pos).
+            week_data:        dict with schedule config from ranking_weeks row.
+            preview_matches:  optional list of pre-scheduled match dicts.
         """
         supabase = get_supabase_client()
+
+        if preview_matches:
+            matches_to_insert = []
+            for m in preview_matches:
+                match_row = {
+                    "week_id": week_id,
+                    "defender_id": m["defender_id"],
+                    "challenger_id": m["challenger_id"],
+                    "defender_position": m["defender_position"],
+                    "challenger_position": m["challenger_position"],
+                    "scheduled_date": m.get("scheduled_date"),
+                    "scheduled_time": m.get("scheduled_time"),
+                    "court_number": m.get("court_number"),
+                }
+                matches_to_insert.append(match_row)
+
+            if matches_to_insert:
+                supabase.table("ranking_matches").insert(matches_to_insert).execute()
+
+            return len(matches_to_insert)
 
         # Parse time configs
         def parse_time(t):

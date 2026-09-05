@@ -482,7 +482,22 @@ def confirm_generate_dialog(cat_id, week_num, phase, config):
 
             week = RankingService.create_week(cat_id, week_num, phase, config)
             if week:
-                count = RankingService.schedule_ranking_week(week["id"], pairings, week)
+                preview_data = st.session_state.get(f"ranking_preview_{cat_id}")
+                preview_matches = None
+                if (
+                    preview_data
+                    and preview_data.get("week_num") == week_num
+                    and preview_data.get("phase") == phase
+                ):
+                    preview_matches = preview_data.get("preview_matches")
+
+                count = RankingService.schedule_ranking_week(
+                    week["id"], pairings, week, preview_matches=preview_matches
+                )
+
+                if f"ranking_preview_{cat_id}" in st.session_state:
+                    del st.session_state[f"ranking_preview_{cat_id}"]
+
                 st.toast(f"Semana {week_num} creada — {count} partidos programados")
 
                 if resting:
@@ -570,47 +585,85 @@ with tab_schedule:
     }
 
     # ── Action buttons ────────────────────────────────────────
-    # Pre-compute preview PDF (lightweight: in-memory pairings + slot grid)
     ladder = RankingService.get_current_ladder(cat_id)
     _has_enough_players = len(ladder) >= 2
 
-    btn_cols = st.columns(2)
+    preview_key = f"ranking_preview_{cat_id}"
 
-    with btn_cols[0]:
-        if _has_enough_players:
+    if _has_enough_players:
+        ladder_ids = tuple(e["player_id"] for e in ladder)
+        current_params = (next_week_num, next_phase, str(_sched_config), ladder_ids)
+
+        preview_state = st.session_state.get(preview_key)
+        if not preview_state or preview_state.get("params") != current_params:
             preview_matches, resting = RankingService.preview_schedule(
                 ladder, next_phase, _sched_config
             )
-            if preview_matches:
-                from utils.pdf_export import generate_ranking_week_pdf
-                draft_week = {"week_number": next_week_num, "phase": next_phase}
-                pdf_bytes = generate_ranking_week_pdf(
-                    preview_matches, draft_week, selected_cat_name, is_draft=True
-                )
-                phase_tag = "C" if next_phase == "challenge" else "D"
-                preview_file = f"borrador_sem{next_week_num}_{phase_tag}_{selected_cat_name.lower()}.pdf"
-                st.download_button(
-                    "Previsualizar Horario",
-                    data=pdf_bytes,
-                    file_name=preview_file,
-                    mime="application/pdf",
-                    key="preview_pdf_dl",
-                    use_container_width=True,
-                )
+            preview_state = {
+                "params": current_params,
+                "preview_matches": preview_matches,
+                "resting": resting,
+                "week_num": next_week_num,
+                "phase": next_phase,
+            }
+            st.session_state[preview_key] = preview_state
 
-                # Show resting players
-                if resting:
-                    resting_names = [
-                        f"{e['first_name']} {e['last_name']}"
-                        for e in ladder if e["player_id"] in resting
-                    ]
-                    if resting_names:
-                        st.info(f"😴 Descansan esta semana: {', '.join(resting_names)}")
+        preview_matches = preview_state["preview_matches"]
+        resting = preview_state["resting"]
+
+    btn_cols = st.columns([1.2, 1.2, 1.6])
+
+    with btn_cols[0]:
+        if _has_enough_players and preview_matches:
+            from utils.pdf_export import generate_ranking_week_pdf
+
+            draft_week = {"week_number": next_week_num, "phase": next_phase}
+            pdf_bytes = generate_ranking_week_pdf(
+                preview_matches, draft_week, selected_cat_name, is_draft=True
+            )
+            phase_tag = "C" if next_phase == "challenge" else "D"
+            preview_file = f"borrador_sem{next_week_num}_{phase_tag}_{selected_cat_name.lower()}.pdf"
+            st.download_button(
+                "Previsualizar Horario",
+                data=pdf_bytes,
+                file_name=preview_file,
+                mime="application/pdf",
+                key="preview_pdf_dl",
+                use_container_width=True,
+            )
         else:
             st.button("Previsualizar Horario", use_container_width=True, disabled=True)
 
     with btn_cols[1]:
+        if _has_enough_players:
+            if st.button("🎲 Mezclar Previsualización", use_container_width=True, key="shuffle_preview_btn"):
+                preview_matches, resting = RankingService.preview_schedule(
+                    ladder, next_phase, _sched_config
+                )
+                ladder_ids = tuple(e["player_id"] for e in ladder)
+                current_params = (next_week_num, next_phase, str(_sched_config), ladder_ids)
+                st.session_state[preview_key] = {
+                    "params": current_params,
+                    "preview_matches": preview_matches,
+                    "resting": resting,
+                    "week_num": next_week_num,
+                    "phase": next_phase,
+                }
+                st.toast("🎲 Previsualización reordenada")
+                st.rerun()
+        else:
+            st.button("🎲 Mezclar Previsualización", use_container_width=True, disabled=True)
+
+    with btn_cols[2]:
         generate_clicked = st.button("🚀 GENERAR HORARIO", type="primary", use_container_width=True)
+
+    if _has_enough_players and resting:
+        resting_names = [
+            f"{e['first_name']} {e['last_name']}"
+            for e in ladder if e["player_id"] in resting
+        ]
+        if resting_names:
+            st.info(f"😴 Descansan esta semana: {', '.join(resting_names)}")
 
     # ── Generate logic (opens confirmation dialog) ────────────
     if generate_clicked:
