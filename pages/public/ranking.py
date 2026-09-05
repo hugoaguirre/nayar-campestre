@@ -413,6 +413,10 @@ div[data-testid="stTextInput"] input[placeholder*="Buscar jugador"]:focus {
     box-shadow: 0 0 12px rgba(204, 255, 0, 0.2) !important;
     background: rgba(255, 255, 255, 0.1) !important;
 }
+div[data-testid="stTextInput"] input[placeholder*="Buscar jugador"]::-webkit-search-cancel-button {
+    cursor: pointer !important;
+    filter: invert(1) brightness(1.8) !important;
+}
 
 </style>
 """,
@@ -899,6 +903,46 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                         label_visibility="collapsed",
                         key=f"match_search_{cat_id}",
                     )
+
+                import streamlit.components.v1 as _stc
+                _stc.html("""
+                <script>
+                (function() {
+                    try {
+                        const pDoc = window.parent.document;
+                        const SEL = 'input[placeholder*="Buscar jugador"]';
+
+                        function attachClearListener() {
+                            pDoc.querySelectorAll(SEL).forEach(input => {
+                                if (input._clearHooked) return;
+                                input._clearHooked = true;
+                                input.setAttribute('type', 'search');
+                                
+                                let hasValue = (input.value || '').trim().length > 0;
+                                
+                                function checkAndBlurIfEmpty() {
+                                    const currentVal = (input.value || '').trim();
+                                    if (currentVal.length === 0 && hasValue) {
+                                        hasValue = false;
+                                        setTimeout(() => {
+                                            input.blur();
+                                        }, 60);
+                                    } else if (currentVal.length > 0) {
+                                        hasValue = true;
+                                    }
+                                }
+
+                                input.addEventListener('input', checkAndBlurIfEmpty);
+                                input.addEventListener('search', checkAndBlurIfEmpty);
+                            });
+                        }
+
+                        attachClearListener();
+                        new MutationObserver(attachClearListener).observe(pDoc.body, {childList: true, subtree: true});
+                    } catch(e) {}
+                })();
+                </script>
+                """, height=0)
 
 
                 # Filter matches by player name when a search query is present
