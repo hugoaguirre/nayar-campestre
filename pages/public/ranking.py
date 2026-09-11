@@ -565,9 +565,9 @@ def _fetch_week_matches(week_id):
 
 
 @st.cache_data(ttl=30)
-def _fetch_player_recent_matches(player_id, limit=5):
+def _fetch_player_recent_matches(player_id, limit=None):
     client = get_anon_client()
-    resp = (
+    query = (
         client.table("ranking_matches")
         .select(
             "*, "
@@ -578,9 +578,10 @@ def _fetch_player_recent_matches(player_id, limit=5):
         .eq("is_completed", True)
         .or_(f"defender_id.eq.{player_id},challenger_id.eq.{player_id}")
         .order("created_at", desc=True)
-        .limit(limit)
-        .execute()
     )
+    if limit:
+        query = query.limit(limit)
+    resp = query.execute()
 
     raw_matches = resp.data or []
     parsed = []
@@ -633,11 +634,10 @@ def _fetch_player_recent_matches(player_id, limit=5):
 # ── Player Stats Pop-up Dialog ────────────────────────────────
 @st.dialog(" ")
 def show_player_stats_modal(player_id: str, name: str, position: int, subcategory: str):
-    matches = _fetch_player_recent_matches(player_id, limit=5)
+    matches = _fetch_player_recent_matches(player_id)
 
-    all_recent = _fetch_player_recent_matches(player_id, limit=10)
     streak = 0
-    for m in all_recent:
+    for m in matches:
         if m.get("won"):
             streak += 1
         else:
@@ -723,8 +723,10 @@ def show_player_stats_modal(player_id: str, name: str, position: int, subcategor
     losses = len(matches) - wins
     win_rate = int((wins / len(matches)) * 100) if matches else 0
 
+    # Forma Reciente: show last 5 matches for momentum clarity
+    recent_matches = matches[:5]
     form_pills = ""
-    for m in matches:
+    for m in recent_matches:
         if m["won"]:
             form_pills += '<span style="color:#CCFF00; font-size:0.85rem; margin-right:3px;" title="Victoria">●</span>'
         else:
@@ -753,12 +755,13 @@ def show_player_stats_modal(player_id: str, name: str, position: int, subcategor
         </div>
     </div>
     <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.7rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:2px; margin-bottom:0.6rem;">
-        📋 ÚLTIMOS {len(matches)} PARTIDOS
+        📋 HISTORIAL DE PARTIDOS ({len(matches)})
     </div>
     """,
         unsafe_allow_html=True,
     )
 
+    cards_html = ""
     for m in matches:
         outcome_color = "#CCFF00" if m["won"] else "#ef4444"
         outcome_text = "VICTORIA" if m["won"] else "DERROTA"
@@ -771,8 +774,7 @@ def show_player_stats_modal(player_id: str, name: str, position: int, subcategor
         week_info = f"Semana {m['week_number']}" if m["week_number"] else ""
         date_info = f" · {m['scheduled_date']}" if m["scheduled_date"] else ""
 
-        st.markdown(
-            f"""
+        cards_html += f"""
         <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-left:4px solid {outcome_color}; border-radius:6px; padding:0.6rem 0.8rem; margin-bottom:0.5rem;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div style="font-family:'Montserrat',sans-serif; font-weight:700; font-size:0.85rem; color:#fff;">
@@ -791,9 +793,16 @@ def show_player_stats_modal(player_id: str, name: str, position: int, subcategor
                 </div>
             </div>
         </div>
+        """
+
+    st.markdown(
+        f"""
+        <div style="max-height:340px; overflow-y:auto; padding-right:6px;">
+            {cards_html}
+        </div>
         """,
-            unsafe_allow_html=True,
-        )
+        unsafe_allow_html=True,
+    )
 
 
 def _get_subcat_label(position, ranges):
