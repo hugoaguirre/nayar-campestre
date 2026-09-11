@@ -588,6 +588,7 @@ def _fetch_player_recent_matches(player_id, limit=None):
     for m in raw_matches:
         is_defender = m["defender_id"] == player_id
         opponent = m.get("challenger", {}) if is_defender else m.get("defender", {})
+        opponent_id = m["challenger_id"] if is_defender else m["defender_id"]
         opponent_pos = (
             m.get("challenger_position") if is_defender else m.get("defender_position")
         )
@@ -617,6 +618,8 @@ def _fetch_player_recent_matches(player_id, limit=None):
             {
                 "match_id": m["id"],
                 "won": won,
+                "is_defender": is_defender,
+                "opponent_id": opponent_id,
                 "is_forfeit": m.get("is_forfeit", False),
                 "opponent_name": f"{opponent.get('first_name', '')} {opponent.get('last_name', '')}".strip(),
                 "opponent_pos": opponent_pos,
@@ -629,6 +632,221 @@ def _fetch_player_recent_matches(player_id, limit=None):
         )
 
     return parsed
+
+
+# ── HTML Cleanup Helper ─────────────────────────────────────────
+def _clean_html(html_str: str) -> str:
+    """Strip leading/trailing whitespace from each line to prevent Streamlit's Markdown parser from treating HTML as code blocks."""
+    return "\n".join(line.strip() for line in html_str.strip().splitlines())
+
+
+# ── Player Analytics Helper ───────────────────────────────────
+def _render_player_analytics(matches: list, wins: int, losses: int):
+    # 1. Sets & Games Dominance
+    sets_won = 0
+    sets_lost = 0
+    games_won = 0
+    games_lost = 0
+    straight_set_wins = 0
+
+    for m in matches:
+        if m.get("is_forfeit"):
+            continue
+        m_sets_won = sum(1 for sp, so in m["sets"] if sp > so)
+        m_sets_lost = sum(1 for sp, so in m["sets"] if so > sp)
+        sets_won += m_sets_won
+        sets_lost += m_sets_lost
+
+        for sp, so in m["sets"]:
+            games_won += sp
+            games_lost += so
+
+        if m["won"] and m_sets_lost == 0 and len(m["sets"]) >= 2:
+            straight_set_wins += 1
+
+    total_sets = sets_won + sets_lost
+    set_eff = int((sets_won / total_sets) * 100) if total_sets else 0
+    game_diff = games_won - games_lost
+    game_diff_sign = f"+{game_diff}" if game_diff > 0 else str(game_diff)
+    game_diff_color = (
+        "#CCFF00"
+        if game_diff > 0
+        else ("#ef4444" if game_diff < 0 else "rgba(255,255,255,0.7)")
+    )
+    straight_rate = int((straight_set_wins / wins) * 100) if wins else 0
+
+    # 2. Attack vs Defense (Retador vs Defensor)
+    def_matches = [m for m in matches if m.get("is_defender")]
+    def_wins = sum(1 for m in def_matches if m["won"])
+    def_losses = len(def_matches) - def_wins
+    def_rate = int((def_wins / len(def_matches)) * 100) if def_matches else 0
+
+    chal_matches = [m for m in matches if not m.get("is_defender")]
+    chal_wins = sum(1 for m in chal_matches if m["won"])
+    chal_losses = len(chal_matches) - chal_wins
+    chal_rate = int((chal_wins / len(chal_matches)) * 100) if chal_matches else 0
+
+    # 3. Supertiebreak (3er Set Decisivo)
+    st_matches = [
+        m for m in matches if len(m.get("sets", [])) >= 3 and not m.get("is_forfeit")
+    ]
+    st_wins = sum(1 for m in st_matches if m["won"])
+    st_losses = len(st_matches) - st_wins
+    st_rate = int((st_wins / len(st_matches)) * 100) if st_matches else 0
+    two_set_matches = len(matches) - len(st_matches)
+
+    clutch_badge = ""
+    if len(st_matches) >= 2:
+        if st_rate >= 60:
+            clutch_badge = '<span style="background:rgba(204,255,0,0.15); border:1px solid #CCFF00; color:#CCFF00; border-radius:4px; padding:2px 6px; font-size:0.58rem; font-weight:800; letter-spacing:1px;">CLUTCH ⚡</span>'
+        elif st_rate <= 33:
+            clutch_badge = '<span style="background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#ef4444; border-radius:4px; padding:2px 6px; font-size:0.58rem; font-weight:800; letter-spacing:1px;">BAJO PRESIÓN</span>'
+
+    # 4. Head-to-Head & Rivalry Insights
+    from collections import defaultdict
+
+    h2h = defaultdict(
+        lambda: {"name": "", "pos": None, "wins": 0, "losses": 0, "total": 0}
+    )
+    for m in matches:
+        opp_key = m.get("opponent_id") or m.get("opponent_name")
+        if not opp_key:
+            continue
+        h2h[opp_key]["name"] = m["opponent_name"]
+        if m.get("opponent_pos"):
+            h2h[opp_key]["pos"] = m["opponent_pos"]
+        h2h[opp_key]["total"] += 1
+        if m["won"]:
+            h2h[opp_key]["wins"] += 1
+        else:
+            h2h[opp_key]["losses"] += 1
+
+    unique_opponents = len(h2h)
+    sorted_rivals = sorted(h2h.values(), key=lambda x: x["total"], reverse=True)
+
+    rival_chips = []
+    for r in sorted_rivals[:3]:
+        r_pos = f"#{r['pos']}" if r.get("pos") else ""
+        rival_chips.append(
+            f"""
+            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.04); border-radius:5px; padding:0.35rem 0.6rem; margin-top:0.35rem;">
+                <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:0.75rem; color:#fff;">
+                    vs. {r['name']} <span style="font-size:0.65rem; color:rgba(255,255,255,0.35);">{r_pos}</span>
+                </div>
+                <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.75rem;">
+                    <span style="color:#CCFF00;">{r['wins']}V</span> - <span style="color:#ef4444;">{r['losses']}D</span>
+                    <span style="font-size:0.65rem; color:rgba(255,255,255,0.35); margin-left:4px;">({r['total']} PJ)</span>
+                </div>
+            </div>
+            """
+        )
+    rivalry_html = (
+        "".join(rival_chips)
+        if rival_chips
+        else '<p style="font-family:\'Inter\',sans-serif; font-size:0.75rem; color:rgba(255,255,255,0.4); margin:0.3rem 0 0 0;">Sin rivales registrados aún.</p>'
+    )
+
+    analytics_html = f"""
+    <div style="max-height:340px; overflow-y:auto; padding-right:6px; display:flex; flex-direction:column; gap:0.6rem;">
+        <!-- 1. Sets & Games -->
+        <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:0.7rem 0.85rem;">
+            <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.65rem; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:0.45rem; display:flex; justify-content:space-between; align-items:center;">
+                <span>🎾 DOMINIO DE SETS Y GAMES</span>
+                <span style="color:#CCFF00; font-size:0.68rem; font-weight:700;">{set_eff}% Sets</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; text-align:center;">
+                <div style="flex:1;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.55rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.8px;">Sets</div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.9rem; color:#fff; margin-top:2px;">
+                        <span style="color:#CCFF00;">{sets_won}G</span> - <span style="color:#ef4444;">{sets_lost}P</span>
+                    </div>
+                </div>
+                <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
+                <div style="flex:1;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.55rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.8px;">Games (Dif)</div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.9rem; color:#fff; margin-top:2px;">
+                        {games_won}-{games_lost} <span style="color:{game_diff_color}; font-size:0.75rem;">({game_diff_sign})</span>
+                    </div>
+                </div>
+                <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
+                <div style="flex:1;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.55rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.8px;">En 2 Sets</div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.9rem; color:#CCFF00; margin-top:2px;">
+                        {straight_set_wins} <span style="font-size:0.7rem; color:rgba(255,255,255,0.4);">({straight_rate}%)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Attack vs Defense -->
+        <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:0.7rem 0.85rem;">
+            <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.65rem; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:0.45rem;">
+                ⚔️ RETADOR VS. DEFENSOR
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; text-align:center;">
+                <div style="flex:1;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.55rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.8px;">🛡️ Como Defensor</div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.9rem; color:#fff; margin-top:2px;">
+                        <span style="color:#CCFF00;">{def_wins}V</span> - <span style="color:#ef4444;">{def_losses}D</span>
+                    </div>
+                    <div style="font-family:'Inter',sans-serif; font-size:0.65rem; color:rgba(255,255,255,0.45); margin-top:1px;">
+                        {def_rate}% retención
+                    </div>
+                </div>
+                <div style="width:1px; height:32px; background:rgba(255,255,255,0.1);"></div>
+                <div style="flex:1;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.55rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.8px;">⚡ Como Retador</div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.9rem; color:#fff; margin-top:2px;">
+                        <span style="color:#CCFF00;">{chal_wins}V</span> - <span style="color:#ef4444;">{chal_losses}D</span>
+                    </div>
+                    <div style="font-family:'Inter',sans-serif; font-size:0.65rem; color:rgba(255,255,255,0.45); margin-top:1px;">
+                        {chal_rate}% éxito al subir
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Super Tiebreak -->
+        <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:0.7rem 0.85rem;">
+            <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.65rem; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:0.45rem; display:flex; justify-content:space-between; align-items:center;">
+                <span>🔥 SUPER TIEBREAK (3ER SET)</span>
+                {clutch_badge}
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; text-align:center;">
+                <div style="flex:1;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.55rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.8px;">Record STB</div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.9rem; color:#fff; margin-top:2px;">
+                        <span style="color:#CCFF00;">{st_wins}V</span> - <span style="color:#ef4444;">{st_losses}D</span>
+                    </div>
+                </div>
+                <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
+                <div style="flex:1;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.55rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.8px;">Efectividad</div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.9rem; color:#CCFF00; margin-top:2px;">
+                        {st_rate}%
+                    </div>
+                </div>
+                <div style="width:1px; height:24px; background:rgba(255,255,255,0.1);"></div>
+                <div style="flex:1;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.55rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.8px;">Partidos a 3 Sets</div>
+                    <div style="font-family:'Inter',sans-serif; font-size:0.75rem; color:rgba(255,255,255,0.6); margin-top:4px;">
+                        {len(st_matches)} a STB · {two_set_matches} corridos
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. H2H & Rivalries -->
+        <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:0.7rem 0.85rem;">
+            <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.65rem; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:0.3rem; display:flex; justify-content:space-between; align-items:center;">
+                <span>👥 CARA A CARA (H2H)</span>
+                <span style="font-size:0.65rem; color:rgba(255,255,255,0.4);">{unique_opponents} rivales distintos</span>
+            </div>
+            {rivalry_html}
+        </div>
+    </div>
+    """
+    st.markdown(_clean_html(analytics_html), unsafe_allow_html=True)
 
 
 # ── Player Stats Pop-up Dialog ────────────────────────────────
@@ -650,19 +868,21 @@ def show_player_stats_modal(player_id: str, name: str, position: int, subcategor
     )
 
     st.markdown(
-        f"""
-    <div style="text-align:center; padding: 0.2rem 0 0.8rem 0;">
-        <div style="display:inline-block; margin-bottom:0.4rem;">
-            <span class="pos-badge {_pos_class(position)}" style="width:46px; height:46px; line-height:46px; font-size:1.15rem;">
-                #{position}
-            </span>
-        </div>
-        <h2 style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:1.4rem; color:#fff; margin:0.2rem 0;">
-            {name}
-        </h2>
-        <div style="margin-top:0.3rem;">{sc_pill}</div>
-    </div>
-    """,
+        _clean_html(
+            f"""
+            <div style="text-align:center; padding: 0.2rem 0 0.8rem 0;">
+                <div style="display:inline-block; margin-bottom:0.4rem;">
+                    <span class="pos-badge {_pos_class(position)}" style="width:46px; height:46px; line-height:46px; font-size:1.15rem;">
+                        #{position}
+                    </span>
+                </div>
+                <h2 style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:1.4rem; color:#fff; margin:0.2rem 0;">
+                    {name}
+                </h2>
+                <div style="margin-top:0.3rem;">{sc_pill}</div>
+            </div>
+            """
+        ),
         unsafe_allow_html=True,
     )
 
@@ -680,41 +900,45 @@ def show_player_stats_modal(player_id: str, name: str, position: int, subcategor
             banner_shadow = "0 0 14px rgba(255,140,0,0.25)"
 
         st.markdown(
-            f"""
-        <div style="
-            background: {banner_bg};
-            border: 1px solid {banner_border};
-            border-radius: 12px;
-            padding: 0.5rem 1rem;
-            text-align: center;
-            margin: 0 auto 0.8rem auto;
-            max-width: 320px;
-            font-family: 'Montserrat', sans-serif;
-            font-weight: 800;
-            font-size: 0.72rem;
-            color: {banner_color};
-            letter-spacing: 1.5px;
-            box-shadow: {banner_shadow};
-            text-shadow: 0 0 8px rgba(255,140,0,0.3);
-        ">
-            EN UNA RACHA 🔥
-        </div>
-        """,
+            _clean_html(
+                f"""
+                <div style="
+                    background: {banner_bg};
+                    border: 1px solid {banner_border};
+                    border-radius: 12px;
+                    padding: 0.5rem 1rem;
+                    text-align: center;
+                    margin: 0 auto 0.8rem auto;
+                    max-width: 320px;
+                    font-family: 'Montserrat', sans-serif;
+                    font-weight: 800;
+                    font-size: 0.72rem;
+                    color: {banner_color};
+                    letter-spacing: 1.5px;
+                    box-shadow: {banner_shadow};
+                    text-shadow: 0 0 8px rgba(255,140,0,0.3);
+                ">
+                    EN UNA RACHA 🔥
+                </div>
+                """
+            ),
             unsafe_allow_html=True,
         )
 
     if not matches:
         st.markdown(
-            """
-        <div style="background:rgba(255,255,255,0.05); border:1px dashed rgba(255,255,255,0.15); border-radius:10px; padding:2rem 1rem; text-align:center; margin:1rem 0;">
-            <p style="font-family:'Montserrat',sans-serif; font-size:0.85rem; color:rgba(255,255,255,0.4); margin:0; letter-spacing:1px;">
-                🎾 SIN PARTIDOS REGISTRADOS AÚN
-            </p>
-            <p style="font-family:'Inter',sans-serif; font-size:0.75rem; color:rgba(255,255,255,0.3); margin-top:0.4rem;">
-                Este jugador aún no tiene resultados de partidos en la escalera actual.
-            </p>
-        </div>
-        """,
+            _clean_html(
+                """
+                <div style="background:rgba(255,255,255,0.05); border:1px dashed rgba(255,255,255,0.15); border-radius:10px; padding:2rem 1rem; text-align:center; margin:1rem 0;">
+                    <p style="font-family:'Montserrat',sans-serif; font-size:0.85rem; color:rgba(255,255,255,0.4); margin:0; letter-spacing:1px;">
+                        🎾 SIN PARTIDOS REGISTRADOS AÚN
+                    </p>
+                    <p style="font-family:'Inter',sans-serif; font-size:0.75rem; color:rgba(255,255,255,0.3); margin-top:0.4rem;">
+                        Este jugador aún no tiene resultados de partidos en la escalera actual.
+                    </p>
+                </div>
+                """
+            ),
             unsafe_allow_html=True,
         )
         return
@@ -733,76 +957,96 @@ def show_player_stats_modal(player_id: str, name: str, position: int, subcategor
             form_pills += '<span style="color:#ef4444; font-size:0.85rem; margin-right:3px;" title="Derrota">●</span>'
 
     st.markdown(
-        f"""
-    <div style="display:flex; justify-content:space-around; align-items:center; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:0.8rem 0.5rem; margin-bottom:1.2rem;">
-        <div style="text-align:center;">
-            <div style="font-family:'Montserrat',sans-serif; font-size:0.58rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px;">Forma Reciente</div>
-            <div style="margin-top:0.3rem;">{form_pills}</div>
-        </div>
-        <div style="height:28px; width:1px; background:rgba(255,255,255,0.1);"></div>
-        <div style="text-align:center;">
-            <div style="font-family:'Montserrat',sans-serif; font-size:0.58rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px;">Record</div>
-            <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.95rem; color:#fff; margin-top:0.1rem;">
-                <span style="color:#CCFF00;">{wins}V</span> - <span style="color:#ef4444;">{losses}D</span>
+        _clean_html(
+            f"""
+            <div style="display:flex; justify-content:space-around; align-items:center; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:0.8rem 0.5rem; margin-bottom:1rem;">
+                <div style="text-align:center;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.58rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px;">Forma Reciente</div>
+                    <div style="margin-top:0.3rem;">{form_pills}</div>
+                </div>
+                <div style="height:28px; width:1px; background:rgba(255,255,255,0.1);"></div>
+                <div style="text-align:center;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.58rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px;">Record</div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.95rem; color:#fff; margin-top:0.1rem;">
+                        <span style="color:#CCFF00;">{wins}V</span> - <span style="color:#ef4444;">{losses}D</span>
+                    </div>
+                </div>
+                <div style="height:28px; width:1px; background:rgba(255,255,255,0.1);"></div>
+                <div style="text-align:center;">
+                    <div style="font-family:'Montserrat',sans-serif; font-size:0.58rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px;">Efectividad</div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.95rem; color:#CCFF00; margin-top:0.1rem;">
+                        {win_rate}%
+                    </div>
+                </div>
             </div>
-        </div>
-        <div style="height:28px; width:1px; background:rgba(255,255,255,0.1);"></div>
-        <div style="text-align:center;">
-            <div style="font-family:'Montserrat',sans-serif; font-size:0.58rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1px;">Efectividad</div>
-            <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.95rem; color:#CCFF00; margin-top:0.1rem;">
-                {win_rate}%
-            </div>
-        </div>
-    </div>
-    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.7rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:2px; margin-bottom:0.6rem;">
-        📋 HISTORIAL DE PARTIDOS ({len(matches)})
-    </div>
-    """,
+            """
+        ),
         unsafe_allow_html=True,
     )
 
-    cards_html = ""
-    for m in matches:
-        outcome_color = "#CCFF00" if m["won"] else "#ef4444"
-        outcome_text = "VICTORIA" if m["won"] else "DERROTA"
-        if m["is_forfeit"]:
-            outcome_text += " (W.O.)"
+    tab_matches, tab_analytics = st.tabs(["Partidos", "Estadísticas"])
 
-        set_strs = [f"{sp}-{so}" for sp, so in m["sets"]]
-        scores_formatted = ", ".join(set_strs) if set_strs else "Sin detalle"
-
-        week_info = f"Semana {m['week_number']}" if m["week_number"] else ""
-        date_info = f" · {m['scheduled_date']}" if m["scheduled_date"] else ""
-
-        cards_html += f"""
-        <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-left:4px solid {outcome_color}; border-radius:6px; padding:0.6rem 0.8rem; margin-bottom:0.5rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-family:'Montserrat',sans-serif; font-weight:700; font-size:0.85rem; color:#fff;">
-                    vs. {m["opponent_name"]} <span style="font-size:0.7rem; color:rgba(255,255,255,0.4);">#{m["opponent_pos"]}</span>
+    with tab_matches:
+        st.markdown(
+            _clean_html(
+                f"""
+                <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.68rem; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:2px; margin:0.4rem 0 0.6rem 0;">
+                    HISTORIAL ({len(matches)} PARTIDOS)
                 </div>
-                <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.7rem; color:{outcome_color}; letter-spacing:1px;">
-                    {outcome_text}
+                """
+            ),
+            unsafe_allow_html=True,
+        )
+
+        cards_html = ""
+        for m in matches:
+            outcome_color = "#CCFF00" if m["won"] else "#ef4444"
+            outcome_text = "VICTORIA" if m["won"] else "DERROTA"
+            if m["is_forfeit"]:
+                outcome_text += " (W.O.)"
+
+            set_strs = [f"{sp}-{so}" for sp, so in m["sets"]]
+            scores_formatted = ", ".join(set_strs) if set_strs else "Sin detalle"
+
+            week_info = f"Semana {m['week_number']}" if m["week_number"] else ""
+            date_info = f" · {m['scheduled_date']}" if m["scheduled_date"] else ""
+
+            role_badge = (
+                '<span style="font-size:0.62rem; color:rgba(255,255,255,0.4); margin-left:6px;">🛡️ Defensor</span>'
+                if m.get("is_defender")
+                else '<span style="font-size:0.62rem; color:rgba(255,255,255,0.4); margin-left:6px;">⚡ Retador</span>'
+            )
+
+            cards_html += f"""
+            <div style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-left:4px solid {outcome_color}; border-radius:6px; padding:0.6rem 0.8rem; margin-bottom:0.5rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:700; font-size:0.85rem; color:#fff;">
+                        vs. {m["opponent_name"]} <span style="font-size:0.7rem; color:rgba(255,255,255,0.4);">#{m["opponent_pos"]}</span>{role_badge}
+                    </div>
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:800; font-size:0.7rem; color:{outcome_color}; letter-spacing:1px;">
+                        {outcome_text}
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.3rem;">
+                    <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:0.8rem; color:#CCFF00;">
+                        {scores_formatted}
+                    </div>
+                    <div style="font-family:'Inter',sans-serif; font-size:0.65rem; color:rgba(255,255,255,0.35);">
+                        {week_info}{date_info}
+                    </div>
                 </div>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.3rem;">
-                <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:0.8rem; color:#CCFF00;">
-                    {scores_formatted}
-                </div>
-                <div style="font-family:'Inter',sans-serif; font-size:0.65rem; color:rgba(255,255,255,0.35);">
-                    {week_info}{date_info}
-                </div>
-            </div>
-        </div>
-        """
+            """
 
-    st.markdown(
-        f"""
+        container_html = f"""
         <div style="max-height:340px; overflow-y:auto; padding-right:6px;">
             {cards_html}
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        """
+        st.markdown(_clean_html(container_html), unsafe_allow_html=True)
+
+    with tab_analytics:
+        _render_player_analytics(matches, wins, losses)
 
 
 def _get_subcat_label(position, ranges):
