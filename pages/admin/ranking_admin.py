@@ -182,8 +182,8 @@ selected_cat = next(c for c in categories if c["name"] == selected_cat_name)
 cat_id = selected_cat["id"]
 
 # ── Tabs ──────────────────────────────────────────────────────
-tab_ladder, tab_subcat, tab_schedule, tab_results = st.tabs([
-    "ESCALERA", "SUBCATEGORÍAS", "PROGRAMAR SEMANA", "RESULTADOS"
+tab_ladder, tab_subcat, tab_schedule, tab_results, tab_modify_results = st.tabs([
+    "ESCALERA", "SUBCATEGORÍAS", "PROGRAMAR SEMANA", "RESULTADOS", "MODIFICAR RESULTADOS"
 ])
 
 
@@ -1076,3 +1076,274 @@ with tab_results:
                     RankingService.complete_week(selected_week_id)
                     st.toast("Semana cerrada exitosamente")
                     st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════
+# TAB 5: MODIFICAR RESULTADOS (Active & Past Weeks)
+# ═══════════════════════════════════════════════════════════════
+with tab_modify_results:
+    st.markdown("""
+    <div style="background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+                border-left: 4px solid #CCFF00; border-radius: 8px; padding: 1rem 1.2rem; margin-bottom: 1.5rem;">
+        <h3 style="font-family: 'Montserrat', sans-serif; font-weight: 800; color: #fff; margin: 0; font-size: 1.2rem; letter-spacing: 1px;">
+            ✏️ MODIFICAR RESULTADOS GUARDADOS
+        </h3>
+        <p style="color: rgba(255, 255, 255, 0.7); font-family: 'Inter', sans-serif; font-size: 0.85rem; margin: 0.4rem 0 0 0;">
+            Busca un jugador para ver y corregir marcadores de partidos guardados en semanas activas o pasadas.
+            Al guardar la corrección, el récord histórico de victorias/derrotas se actualizará automáticamente.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Search Input ──────────────────────────────────────────
+    search_col1, search_col2 = st.columns([3, 1])
+    with search_col1:
+        search_query = st.text_input(
+            "Buscar jugador",
+            placeholder="Escribe el nombre o apellido del jugador...",
+            key="mod_results_search_input",
+            help="Filtra por nombre o apellido para encontrar a cualquier jugador de la categoría."
+        )
+    with search_col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Limpiar Búsqueda", key="mod_clear_search_btn", use_container_width=True):
+            st.session_state.mod_results_search_input = ""
+            st.rerun()
+
+    candidates = RankingService.get_players_with_history(cat_id, search_query=search_query)
+
+    if not candidates:
+        st.info("No se encontraron jugadores que coincidan con la búsqueda en esta categoría.")
+    else:
+        # Build selectbox options
+        player_options = {}
+        for p in candidates:
+            pos_label = f" (#{p['position']})" if p['position'] is not None else ""
+            matches_label = f"{p['completed_matches_count']} partido(s) guardado(s)"
+            label = f"{p['full_name']}{pos_label} — {matches_label}"
+            player_options[label] = p["id"]
+
+        selected_label = st.selectbox(
+            "Selecciona un jugador para ver su historial de partidos:",
+            list(player_options.keys()),
+            key="mod_player_select",
+        )
+        selected_player_id = player_options[selected_label]
+        selected_player = next(p for p in candidates if p["id"] == selected_player_id)
+
+        # ── Fetch Historical Completed Matches ────────────────
+        player_matches = RankingService.get_completed_matches_by_player(selected_player_id, category_id=cat_id)
+
+        # ── Player Historical Stats Summary Card ──────────────
+        wins = sum(1 for m in player_matches if m["won"])
+        losses = len(player_matches) - wins
+        win_rate = int((wins / len(player_matches)) * 100) if player_matches else 0
+        current_pos_display = f"#{selected_player['position']}" if selected_player['position'] is not None else "—"
+
+        st.markdown(f"""
+        <div style="display: flex; justify-content: space-around; align-items: center;
+                    background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(15px);
+                    border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 10px;
+                    padding: 0.9rem 0.6rem; margin-top: 1rem; margin-bottom: 1.5rem;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+            <div style="text-align: center;">
+                <div style="font-family: 'Montserrat', sans-serif; font-size: 0.62rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px;">Posición Escalera</div>
+                <div style="font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.15rem; color: #fff; margin-top: 0.2rem;">{current_pos_display}</div>
+            </div>
+            <div style="height: 28px; width: 1px; background: rgba(255, 255, 255, 0.12);"></div>
+            <div style="text-align: center;">
+                <div style="font-family: 'Montserrat', sans-serif; font-size: 0.62rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px;">Récord Histórico</div>
+                <div style="font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.15rem; margin-top: 0.2rem;">
+                    <span style="color: #CCFF00;">{wins}V</span> - <span style="color: #ef4444;">{losses}D</span>
+                </div>
+            </div>
+            <div style="height: 28px; width: 1px; background: rgba(255, 255, 255, 0.12);"></div>
+            <div style="text-align: center;">
+                <div style="font-family: 'Montserrat', sans-serif; font-size: 0.62rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px;">Efectividad</div>
+                <div style="font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.15rem; color: #CCFF00; margin-top: 0.2rem;">{win_rate}%</div>
+            </div>
+            <div style="height: 28px; width: 1px; background: rgba(255, 255, 255, 0.12);"></div>
+            <div style="text-align: center;">
+                <div style="font-family: 'Montserrat', sans-serif; font-size: 0.62rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px;">Partidos Guardados</div>
+                <div style="font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.15rem; color: #fff; margin-top: 0.2rem;">{len(player_matches)}</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if not player_matches:
+            st.info(f"{selected_player['full_name']} no tiene partidos completados guardados en la categoría {selected_cat_name}.")
+        else:
+            st.markdown(f"#### Partidos Guardados ({len(player_matches)})")
+            st.caption("Selecciona 'Editar Marcador' en cualquiera de los partidos para corregir resultados pasados o activos.")
+
+            for m in player_matches:
+                match_id = m["id"]
+                week_num = m["week_number"]
+                phase_label = "Fase Desafío" if m["phase"] == "challenge" else "Fase Defensa"
+                is_active_week = not m["week_is_completed"]
+
+                week_badge_color = "#CCFF00" if is_active_week else "rgba(255,255,255,0.4)"
+                week_badge_text = "SEMANA ACTIVA" if is_active_week else "SEMANA PASADA"
+
+                outcome_color = "#CCFF00" if m["won"] else "#ef4444"
+                outcome_text = "VICTORIA" if m["won"] else "DERROTA"
+                if m["is_forfeit"]:
+                    outcome_text += " (W.O.)"
+
+                # Format current set scores
+                sets_str = ", ".join([f"{sp}-{so}" for sp, so in m["sets_player_view"]]) if m["sets_player_view"] else "Sin marcador detallado"
+
+                # Time and court
+                time_court = ""
+                if m.get("scheduled_date"):
+                    time_court += f"📅 {m['scheduled_date']} "
+                if m.get("scheduled_time"):
+                    t_val = str(m["scheduled_time"])[:5]
+                    time_court += f"| ⏰ {t_val} "
+                if m.get("court_number"):
+                    time_court += f"| 🎾 Cancha {m['court_number']}"
+
+                # Match card header
+                st.markdown(f"""
+                <div class="ranking-card" style="border-top-color: {outcome_color}; margin-top: 0.8rem; margin-bottom: 0.3rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                        <span style="font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.75rem; color: {week_badge_color}; letter-spacing: 1px;">
+                            SEMANA {week_num} — {phase_label.upper()} ({week_badge_text})
+                        </span>
+                        <span style="font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 0.75rem; color: {outcome_color}; letter-spacing: 1px;">
+                            {outcome_text}
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.95rem; color: #fff;">
+                                #{m['player_pos']} {selected_player['full_name']}
+                            </span>
+                            <span style="color: #CCFF00; font-weight: 900; font-size: 0.75rem; margin: 0 0.5rem;">VS</span>
+                            <span style="font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.95rem; color: rgba(255,255,255,0.85);">
+                                #{m['opponent_pos']} {m['opponent_name']}
+                            </span>
+                        </div>
+                        <div style="font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.9rem; color: #CCFF00;">
+                            {sets_str}
+                        </div>
+                    </div>
+                    <div style="font-size: 0.7rem; color: rgba(255,255,255,0.4); margin-top: 0.4rem;">
+                        {time_court}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Edit Expander
+                with st.expander(f"✏️ Editar Marcador — Semana {week_num} vs {m['opponent_name']}", expanded=False):
+                    d_name = m["defender_name"]
+                    c_name = m["challenger_name"]
+                    d_pos = m["defender_position"]
+                    c_pos = m["challenger_position"]
+
+                    # Prepopulate scores
+                    cur_s1d = m["set1_defender"] if m["set1_defender"] is not None else 0
+                    cur_s2d = m["set2_defender"] if m["set2_defender"] is not None else 0
+                    cur_s3d = m["set3_defender"] if m["set3_defender"] is not None else 0
+                    cur_s1c = m["set1_challenger"] if m["set1_challenger"] is not None else 0
+                    cur_s2c = m["set2_challenger"] if m["set2_challenger"] is not None else 0
+                    cur_s3c = m["set3_challenger"] if m["set3_challenger"] is not None else 0
+
+                    st.markdown("""
+                    <div style="font-family: 'Montserrat', sans-serif; font-size: 0.72rem; color: rgba(255,255,255,0.5);
+                                text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4rem;">
+                        Marcador por Sets (Defensor vs Retador)
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Score matrix
+                    # Row 1: Defender
+                    cols_d = st.columns([3, 1, 1, 1])
+                    with cols_d[0]:
+                        st.markdown(f"**{d_name}** `#{d_pos}` *(Defensor)*")
+                    with cols_d[1]:
+                        s1d = st.number_input("S1 Def", min_value=0, max_value=7, value=int(cur_s1d), key=f"mod_s1d_{match_id}", label_visibility="collapsed")
+                    with cols_d[2]:
+                        s2d = st.number_input("S2 Def", min_value=0, max_value=7, value=int(cur_s2d), key=f"mod_s2d_{match_id}", label_visibility="collapsed")
+                    with cols_d[3]:
+                        s3d = st.number_input("S3 Def", min_value=0, max_value=30, value=int(cur_s3d), key=f"mod_s3d_{match_id}", label_visibility="collapsed")
+
+                    # Row 2: Challenger
+                    cols_c = st.columns([3, 1, 1, 1])
+                    with cols_c[0]:
+                        st.markdown(f"**{c_name}** `#{c_pos}` *(Retador)*")
+                    with cols_c[1]:
+                        s1c = st.number_input("S1 Chal", min_value=0, max_value=7, value=int(cur_s1c), key=f"mod_s1c_{match_id}", label_visibility="collapsed")
+                    with cols_c[2]:
+                        s2c = st.number_input("S2 Chal", min_value=0, max_value=7, value=int(cur_s2c), key=f"mod_s2c_{match_id}", label_visibility="collapsed")
+                    with cols_c[3]:
+                        s3c = st.number_input("S3 Chal", min_value=0, max_value=30, value=int(cur_s3c), key=f"mod_s3c_{match_id}", label_visibility="collapsed")
+
+                    st.caption("S1 y S2: Sets normales (0-7). S3: Super Tiebreak (0-30). Si no hubo tercer set, déjalo en 0.")
+
+                    # Auto winner calculation
+                    sets_d = (1 if s1d > s1c else 0) + (1 if s2d > s2c else 0) + (1 if s3d > s3c else 0)
+                    sets_c = (1 if s1c > s1d else 0) + (1 if s2c > s2d else 0) + (1 if s3c > s3d else 0)
+
+                    auto_winner_id = m["defender_id"] if sets_d >= sets_c else m["challenger_id"]
+
+                    # Options for official winner
+                    winner_choices = [m["defender_id"], m["challenger_id"]]
+                    winner_names = {
+                        m["defender_id"]: f"{d_name} (#{d_pos} - Defensor)",
+                        m["challenger_id"]: f"{c_name} (#{c_pos} - Retador)",
+                    }
+                    default_winner_idx = 0 if auto_winner_id == m["defender_id"] else 1
+
+                    opt_cols = st.columns([2, 1])
+                    with opt_cols[0]:
+                        chosen_winner_id = st.radio(
+                            "Ganador oficial:",
+                            winner_choices,
+                            index=default_winner_idx,
+                            format_func=lambda x: winner_names[x],
+                            key=f"mod_win_radio_{match_id}",
+                            horizontal=True,
+                        )
+                    with opt_cols[1]:
+                        is_forfeit_val = st.checkbox(
+                            "Walkover / Forfeit",
+                            value=m["is_forfeit"],
+                            key=f"mod_forfeit_{match_id}",
+                            help="Marca si el partido terminó por default, retiro o no-show.",
+                        )
+
+                    # Info callout about ladder position swap rule
+                    if is_active_week:
+                        st.info("⚡ **Semana activa:** Si el ganador cambia, se actualizarán e intercambiarán las posiciones correspondientes en la escalera actual.")
+                    else:
+                        st.caption("ℹ️ **Semana pasada:** La actualización corregirá el marcador y el récord histórico de victorias/derrotas de ambos jugadores sin alterar las posiciones de la escalera.")
+
+                    # Save button
+                    if st.button("💾 GUARDAR CORRECCIÓN", type="primary", key=f"mod_save_btn_{match_id}", use_container_width=True):
+                        corrected_scores = {
+                            "set1_defender": s1d,
+                            "set1_challenger": s1c,
+                            "set2_defender": s2d,
+                            "set2_challenger": s2c,
+                            "set3_defender": s3d if (s3d > 0 or s3c > 0) else None,
+                            "set3_challenger": s3c if (s3d > 0 or s3c > 0) else None,
+                        }
+
+                        with st.spinner("Guardando corrección y actualizando récord histórico..."):
+                            res = RankingService.update_saved_match_result(
+                                match_id=match_id,
+                                winner_id=chosen_winner_id,
+                                scores=corrected_scores,
+                                is_forfeit=is_forfeit_val,
+                                entered_by=user.get("id"),
+                            )
+
+                        if res.get("success"):
+                            st.toast(f"✓ Resultado corregido — Semana {week_num}")
+                            if res.get("swapped") and res.get("swap_msg"):
+                                st.toast(f"✓ {res['swap_msg']}")
+                            st.rerun()
+                        else:
+                            st.error(res.get("error", "Error desconocido al actualizar."))
+

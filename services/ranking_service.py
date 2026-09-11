@@ -1190,3 +1190,324 @@ class RankingService:
         except Exception as e:
             print(f"Error resetting ranking: {e}")
             return False
+
+    # ═══════════════════════════════════════════════════════════
+    # MODIFY SAVED RESULTS (Active & Past Weeks)
+    # ═══════════════════════════════════════════════════════════
+
+    @staticmethod
+    def get_players_with_history(category_id, search_query=""):
+        """
+        Fetch all players relevant to the category (in ladder or with completed matches),
+        optionally filtered by a search query string.
+
+        Returns list of dicts:
+            [{id, first_name, last_name, full_name, position, completed_matches_count}, ...]
+        """
+        supabase = get_supabase_client()
+
+        # 1. Fetch current ladder positions for this category
+        ladder_resp = (
+            supabase.table("ranking_ladders")
+            .select("position, player_id, players(id, first_name, last_name)")
+            .eq("category_id", category_id)
+            .eq("is_active", True)
+            .order("position")
+            .execute()
+        )
+        ladder_map = {}
+        players_dict = {}
+
+        for row in (ladder_resp.data or []):
+            p_id = row["player_id"]
+            pos = row["position"]
+            ladder_map[p_id] = pos
+            p_data = row.get("players") or {}
+            if p_data:
+                first = p_data.get("first_name", "") or ""
+                last = p_data.get("last_name", "") or ""
+                players_dict[p_id] = {
+                    "id": p_id,
+                    "first_name": first,
+                    "last_name": last,
+                    "full_name": f"{first} {last}".strip(),
+                    "position": pos,
+                    "completed_matches_count": 0,
+                }
+
+        # 2. Count completed matches per player in this category
+        matches_resp = (
+            supabase.table("ranking_matches")
+            .select(
+                "defender_id, challenger_id, "
+                "defender:players!defender_id(id, first_name, last_name), "
+                "challenger:players!challenger_id(id, first_name, last_name), "
+                "ranking_weeks!inner(category_id)"
+            )
+            .eq("ranking_weeks.category_id", category_id)
+            .eq("is_completed", True)
+            .execute()
+        )
+
+        for m in (matches_resp.data or []):
+            def_id = m.get("defender_id")
+            chal_id = m.get("challenger_id")
+            for pid, player_rel in [(def_id, m.get("defender")), (chal_id, m.get("challenger"))]:
+                if not pid:
+                    continue
+                if pid not in players_dict:
+                    p_info = player_rel or {}
+                    first = p_info.get("first_name", "") or ""
+                    last = p_info.get("last_name", "") or ""
+                    players_dict[pid] = {
+                        "id": pid,
+                        "first_name": first,
+                        "last_name": last,
+                        "full_name": f"{first} {last}".strip(),
+                        "position": ladder_map.get(pid),
+                        "completed_matches_count": 0,
+                    }
+                players_dict[pid]["completed_matches_count"] += 1
+
+        # 3. Filter by search query if provided
+        players_list = list(players_dict.values())
+        if search_query and search_query.strip():
+            q = search_query.strip().lower()
+            players_list = [
+                p for p in players_list
+                if q in p["full_name"].lower()
+            ]
+
+        # 4. Sort: players with matches first, then by position/name
+        def _sort_key(p):
+            has_matches = 0 if p["completed_matches_count"] > 0 else 1
+            pos = p["position"] if p["position"] is not None else 9999
+            return (has_matches, pos, p["full_name"])
+
+        players_list.sort(key=_sort_key)
+        return players_list
+
+    @staticmethod
+    def get_completed_matches_by_player(player_id, category_id=None):
+        """
+        Fetch all completed matches (ignoring drafts) for a player in a category.
+        Includes active and past weeks, ordered by date/created_at descending.
+
+        Returns list of parsed match dicts.
+        """
+        supabase = get_supabase_client()
+
+        query = (
+            supabase.table("ranking_matches")
+            .select(
+                "id, week_id, defender_id, challenger_id, defender_position, challenger_position, "
+                "scheduled_date, scheduled_time, court_number, "
+                "set1_defender, set1_challenger, set2_defender, set2_challenger, set3_defender, set3_challenger, "
+                "winner_id, is_forfeit, is_completed, completed_at, created_at, "
+                "ranking_weeks!inner(id, category_id, week_number, phase, week_start_date, week_end_date, is_completed), "
+                "defender:players!defender_id(id, first_name, last_name), "
+                "challenger:players!challenger_id(id, first_name, last_name)"
+            )
+            .eq("is_completed", True)
+            .or_(f"defender_id.eq.{player_id},challenger_id.eq.{player_id}")
+        )
+
+        if category_id:
+            query = query.eq("ranking_weeks.category_id", category_id)
+
+        resp = query.order("scheduled_date", desc=True).order("created_at", desc=True).execute()
+        raw = resp.data or []
+
+        parsed = []
+        for m in raw:
+            is_defender = m["defender_id"] == player_id
+            opponent = m.get("challenger", {}) if is_defender else m.get("defender", {})
+            opponent_id = m["challenger_id"] if is_defender else m["defender_id"]
+            opponent_first = opponent.get("first_name", "") or ""
+            opponent_last = opponent.get("last_name", "") or ""
+            opponent_name = f"{opponent_first} {opponent_last}".strip()
+
+            player_pos = m["defender_position"] if is_defender else m["challenger_position"]
+            opponent_pos = m["challenger_position"] if is_defender else m["defender_position"]
+            won = m.get("winner_id") == player_id
+
+            week = m.get("ranking_weeks", {}) or {}
+            week_num = week.get("week_number")
+            phase = week.get("phase")
+            week_is_completed = week.get("is_completed", False)
+
+            sets = []
+            s1_d, s1_c = m.get("set1_defender"), m.get("set1_challenger")
+            s2_d, s2_c = m.get("set2_defender"), m.get("set2_challenger")
+            s3_d, s3_c = m.get("set3_defender"), m.get("set3_challenger")
+
+            if s1_d is not None and s1_c is not None:
+                sets.append((s1_d if is_defender else s1_c, s1_c if is_defender else s1_d))
+            if s2_d is not None and s2_c is not None:
+                sets.append((s2_d if is_defender else s2_c, s2_c if is_defender else s2_d))
+            if s3_d is not None and s3_c is not None:
+                sets.append((s3_d if is_defender else s3_c, s3_c if is_defender else s3_d))
+
+            parsed.append({
+                "id": m["id"],
+                "week_id": m["week_id"],
+                "week_number": week_num,
+                "phase": phase,
+                "week_is_completed": week_is_completed,
+                "week_start_date": week.get("week_start_date"),
+                "scheduled_date": m.get("scheduled_date"),
+                "scheduled_time": m.get("scheduled_time"),
+                "court_number": m.get("court_number"),
+                "is_defender": is_defender,
+                "defender_id": m["defender_id"],
+                "challenger_id": m["challenger_id"],
+                "defender_name": f"{(m.get('defender') or {}).get('first_name', '')} {(m.get('defender') or {}).get('last_name', '')}".strip(),
+                "challenger_name": f"{(m.get('challenger') or {}).get('first_name', '')} {(m.get('challenger') or {}).get('last_name', '')}".strip(),
+                "defender_position": m["defender_position"],
+                "challenger_position": m["challenger_position"],
+                "player_pos": player_pos,
+                "opponent_id": opponent_id,
+                "opponent_name": opponent_name,
+                "opponent_pos": opponent_pos,
+                "won": won,
+                "winner_id": m.get("winner_id"),
+                "is_forfeit": m.get("is_forfeit", False),
+                "set1_defender": s1_d,
+                "set1_challenger": s1_c,
+                "set2_defender": s2_d,
+                "set2_challenger": s2_c,
+                "set3_defender": s3_d,
+                "set3_challenger": s3_c,
+                "sets_player_view": sets,
+            })
+
+        return parsed
+
+    @staticmethod
+    def update_saved_match_result(match_id, winner_id, scores, is_forfeit=False, entered_by=None):
+        """
+        Update a previously saved/committed match result.
+
+        1. Updates ranking_matches with corrected scores, winner, and forfeit state.
+        2. Ladder position rule:
+           - Past weeks (is_completed == True): NEVER modify ladder positions.
+           - Active week (is_completed == False): If winner changed, swap Challenger
+             and Defender in ranking_ladders (or swap back if Defender wins).
+        3. Cleans up any orphaned drafts for this match.
+        4. Clears Streamlit cache to immediately recalculate win/loss records.
+
+        Returns dict:
+            {"success": bool, "swapped": bool, "swap_msg": str, "error": str}
+        """
+        supabase = get_supabase_client()
+
+        # 1. Fetch match and week details
+        match_resp = (
+            supabase.table("ranking_matches")
+            .select("*, ranking_weeks!inner(category_id, is_completed, week_number)")
+            .eq("id", match_id)
+            .execute()
+        )
+        if not match_resp.data:
+            return {"success": False, "swapped": False, "error": "Partido no encontrado"}
+
+        match = match_resp.data[0]
+        old_winner_id = match.get("winner_id")
+        category_id = match["ranking_weeks"]["category_id"]
+        week_is_completed = match["ranking_weeks"]["is_completed"]
+        week_number = match["ranking_weeks"]["week_number"]
+        defender_id = match["defender_id"]
+        challenger_id = match["challenger_id"]
+
+        # 2. Update ranking_matches row
+        update_data = {
+            "winner_id": winner_id,
+            "is_forfeit": is_forfeit,
+            "is_completed": True,
+            "completed_at": datetime.utcnow().isoformat(),
+            **scores,
+        }
+        if entered_by:
+            update_data["entered_by"] = entered_by
+
+        try:
+            supabase.table("ranking_matches").update(update_data).eq("id", match_id).execute()
+        except Exception as e:
+            return {"success": False, "swapped": False, "error": f"Error al actualizar el partido: {e}"}
+
+        # 3. Position swap rule:
+        # ONLY apply position adjustments if the week is currently ACTIVE (not completed)
+        swapped = False
+        swap_msg = ""
+
+        if not week_is_completed and old_winner_id != winner_id:
+            try:
+                def_row = (
+                    supabase.table("ranking_ladders")
+                    .select("id, position")
+                    .eq("category_id", category_id)
+                    .eq("player_id", defender_id)
+                    .limit(1)
+                    .execute()
+                )
+                chal_row = (
+                    supabase.table("ranking_ladders")
+                    .select("id, position")
+                    .eq("category_id", category_id)
+                    .eq("player_id", challenger_id)
+                    .limit(1)
+                    .execute()
+                )
+
+                if def_row.data and chal_row.data:
+                    d_pos = def_row.data[0]["position"]
+                    c_pos = chal_row.data[0]["position"]
+                    d_entry_id = def_row.data[0]["id"]
+                    c_entry_id = chal_row.data[0]["id"]
+
+                    # Determine if a ladder swap is required:
+                    # - If challenger now won, and challenger is ranked lower (d_pos < c_pos) -> swap!
+                    # - If defender now won, but challenger was placed higher (c_pos < d_pos) -> swap back!
+                    should_swap = False
+                    if winner_id == challenger_id and d_pos < c_pos:
+                        should_swap = True
+                    elif winner_id == defender_id and c_pos < d_pos:
+                        should_swap = True
+
+                    if should_swap:
+                        # Clean up any stale sentinel position
+                        supabase.table("ranking_ladders").delete().eq(
+                            "category_id", category_id
+                        ).eq("position", -1).execute()
+
+                        # Sentinel swap to avoid unique constraint
+                        supabase.table("ranking_ladders").update({"position": -1}).eq("id", c_entry_id).execute()
+                        supabase.table("ranking_ladders").update({"position": c_pos}).eq("id", d_entry_id).execute()
+                        supabase.table("ranking_ladders").update({"position": d_pos}).eq("id", c_entry_id).execute()
+
+                        swapped = True
+                        swap_msg = f"Posiciones en la escalera intercambiadas (#{d_pos} ↔ #{c_pos}) por pertenecer a la semana activa (Semana {week_number})."
+            except Exception as e:
+                print(f"Error al actualizar posiciones de la escalera: {e}")
+                swap_msg = f"No se pudieron ajustar las posiciones de la escalera: {e}"
+
+        # 4. Clean up any lingering draft for this match
+        try:
+            supabase.table("ranking_match_drafts").delete().eq("match_id", match_id).execute()
+        except Exception:
+            pass
+
+        # 5. Clear Streamlit cache so historical records update immediately
+        try:
+            import streamlit as st
+            st.cache_data.clear()
+        except Exception:
+            pass
+
+        return {
+            "success": True,
+            "swapped": swapped,
+            "swap_msg": swap_msg,
+            "is_active_week": not week_is_completed,
+        }
+
