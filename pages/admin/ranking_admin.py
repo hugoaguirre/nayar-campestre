@@ -478,7 +478,7 @@ def confirm_generate_dialog(cat_id, week_num, phase, config):
     with c2:
         if st.button("CONFIRMAR", type="primary", use_container_width=True):
             ladder = RankingService.get_current_ladder(cat_id)
-            pairings, resting = RankingService.generate_pairings(ladder, phase)
+            pairings, resting = RankingService.generate_pairings(ladder, phase, category_id=cat_id)
 
             week = RankingService.create_week(cat_id, week_num, phase, config)
             if week:
@@ -597,7 +597,7 @@ with tab_schedule:
         preview_state = st.session_state.get(preview_key)
         if not preview_state or preview_state.get("params") != current_params:
             preview_matches, resting = RankingService.preview_schedule(
-                ladder, next_phase, _sched_config
+                ladder, next_phase, _sched_config, category_id=cat_id
             )
             preview_state = {
                 "params": current_params,
@@ -638,7 +638,7 @@ with tab_schedule:
         if _has_enough_players:
             if st.button("🎲 Mezclar Previsualización", use_container_width=True, key="shuffle_preview_btn"):
                 preview_matches, resting = RankingService.preview_schedule(
-                    ladder, next_phase, _sched_config
+                    ladder, next_phase, _sched_config, category_id=cat_id
                 )
                 ladder_ids = tuple(e["player_id"] for e in ladder)
                 current_params = (next_week_num, next_phase, str(_sched_config), ladder_ids)

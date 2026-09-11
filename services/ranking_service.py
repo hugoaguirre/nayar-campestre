@@ -215,17 +215,114 @@ class RankingService:
         ).eq("id", entry_id).execute()
 
     # ═══════════════════════════════════════════════════════════
-    # PAIRING ENGINE
+    # PAIRING ENGINE (PARITY BYE & ANTI-REMATCH)
     # ═══════════════════════════════════════════════════════════
 
     @staticmethod
-    def generate_pairings(ladder, phase):
+    def get_previous_week_matches(category_id, before_week_number=None):
         """
-        Generate match pairings from an ordered ladder based on week phase.
+        Fetch matches from the most recent week for this category that has match records.
+        Returns list of dicts: [{defender_id, challenger_id, winner_id, ...}].
+        """
+        supabase = get_supabase_client()
+        query = (
+            supabase.table("ranking_weeks")
+            .select("id, week_number, is_completed")
+            .eq("category_id", category_id)
+        )
+        if before_week_number is not None:
+            query = query.lt("week_number", before_week_number)
+
+        weeks_resp = query.order("week_number", desc=True).execute()
+        for w in (weeks_resp.data or []):
+            matches_resp = (
+                supabase.table("ranking_matches")
+                .select("defender_id, challenger_id, winner_id, is_completed")
+                .eq("week_id", w["id"])
+                .execute()
+            )
+            matches = matches_resp.data or []
+            if matches:
+                return matches
+
+        return []
+
+    @staticmethod
+    def _scan_pairings(candidates, last_opponent, last_winner_map):
+        """
+        Walks candidates sequentially with anti-rematch enforcement:
+        - If candidate pair (pA, pB) played each other last week:
+          Assigns a BYE to the winner of that match (Option A).
+          Pairs the loser with pC (the next available candidate).
+          Continues past pC.
+        - If no rematch:
+          Pairs (pA, pB) normally.
+          Continues past pB.
+        - Any odd player out at the bottom of the ladder rests.
+
+        Returns: (pairings, resting, clash_byes)
+        """
+        pairings = []
+        resting = []
+        clash_byes = []
+        n = len(candidates)
+        i = 0
+
+        while i < n:
+            if i == n - 1:
+                resting.append(candidates[i][0])
+                break
+
+            pA_id, pA_pos = candidates[i]
+            pB_id, pB_pos = candidates[i + 1]
+
+            is_rematch = (last_opponent.get(pA_id) == pB_id)
+
+            if not is_rematch:
+                if pA_pos <= pB_pos:
+                    pairings.append((pA_id, pA_pos, pB_id, pB_pos))
+                else:
+                    pairings.append((pB_id, pB_pos, pA_id, pA_pos))
+                i += 2
+            else:
+                # REMATCH DETECTED!
+                # Reward the winner of last week with a BYE
+                winner_id = last_winner_map.get(pA_id)
+                if winner_id == pB_id:
+                    bye_player = (pB_id, pB_pos)
+                    active_player = (pA_id, pA_pos)
+                else:
+                    bye_player = (pA_id, pA_pos)
+                    active_player = (pB_id, pB_pos)
+
+                resting.append(bye_player[0])
+                clash_byes.append(bye_player[0])
+
+                # active_player pairs with next available player pC (i + 2)
+                if i + 2 < n:
+                    pC_id, pC_pos = candidates[i + 2]
+                    if active_player[1] <= pC_pos:
+                        pairings.append((active_player[0], active_player[1], pC_id, pC_pos))
+                    else:
+                        pairings.append((pC_id, pC_pos, active_player[0], active_player[1]))
+                    i += 3
+                else:
+                    resting.append(active_player[0])
+                    break
+
+        return pairings, resting, clash_byes
+
+    @staticmethod
+    def generate_pairings(ladder, phase, category_id=None, previous_matches=None):
+        """
+        Generate match pairings from an ordered ladder based on week phase with
+        anti-rematch protection and Parity BYE healing.
 
         Args:
-            ladder: list of dicts with at least {player_id, position}, sorted by position.
-            phase:  'challenge' or 'defend'.
+            ladder:           list of dicts with at least {player_id, position}, sorted by position.
+            phase:            'challenge' or 'defend'.
+            category_id:      optional UUID of ranking category (to auto-fetch last week's matches).
+            previous_matches: optional pre-fetched list of match dicts from previous week.
 
         Returns:
             (pairings, resting)
@@ -236,30 +333,69 @@ class RankingService:
             return [], []
 
         positions = [(p["player_id"], p["position"]) for p in ladder]
-        pairings = []
-        resting = []
 
+        # Fetch previous matches if not provided
+        if previous_matches is None and category_id:
+            try:
+                previous_matches = RankingService.get_previous_week_matches(category_id)
+            except Exception as e:
+                print(f"Warning: Could not fetch previous week matches: {e}")
+                previous_matches = []
+
+        # Build lookup maps for last week's matches
+        last_opponent = {}
+        last_winner_map = {}
+        for m in (previous_matches or []):
+            d_id = m.get("defender_id")
+            c_id = m.get("challenger_id")
+            w_id = m.get("winner_id")
+            if d_id and c_id:
+                last_opponent[d_id] = c_id
+                last_opponent[c_id] = d_id
+                if w_id:
+                    last_winner_map[d_id] = w_id
+                    last_winner_map[c_id] = w_id
+
+        # Plan 1: Standard phase rule
         if phase == "challenge":
-            # #1 rests, then pairs: (2,3), (4,5), (6,7), ...
-            resting.append(positions[0][0])
-            remaining = positions[1:]
+            # #1 rests
+            cands_1 = positions[1:]
+            pairings_1, resting_1, clash_1 = RankingService._scan_pairings(
+                cands_1, last_opponent, last_winner_map
+            )
+            resting_1 = [positions[0][0]] + resting_1
+
+            if not clash_1:
+                # Normal week without clashes: #1 rests as scheduled
+                return pairings_1, resting_1
+
+            # A clash was detected in Plan 1 due to departures/additions!
+            # Check if having #1 play eliminates clashes or reduces total byes:
+            cands_2 = positions
+            pairings_2, resting_2, clash_2 = RankingService._scan_pairings(
+                cands_2, last_opponent, last_winner_map
+            )
+
+            seed1_id = positions[0][0]
+            seed1_rematched = (
+                (last_opponent.get(seed1_id) == positions[1][0])
+                if len(positions) > 1
+                else False
+            )
+
+            if not seed1_rematched and (
+                len(clash_2) < len(clash_1) or len(resting_2) < len(resting_1)
+            ):
+                return pairings_2, resting_2
+
+            return pairings_1, resting_1
         else:
-            # Defend: pairs (1,2), (3,4), (5,6), ...
-            remaining = positions
-
-        # Pair adjacent players
-        i = 0
-        while i + 1 < len(remaining):
-            defender_id, defender_pos = remaining[i]
-            challenger_id, challenger_pos = remaining[i + 1]
-            pairings.append((defender_id, defender_pos, challenger_id, challenger_pos))
-            i += 2
-
-        # Odd player out rests
-        if i < len(remaining):
-            resting.append(remaining[i][0])
-
-        return pairings, resting
+            # Defend: #1 plays by default
+            cands_1 = positions
+            pairings_1, resting_1, clash_1 = RankingService._scan_pairings(
+                cands_1, last_opponent, last_winner_map
+            )
+            return pairings_1, resting_1
 
     # ═══════════════════════════════════════════════════════════
     # WEEK MANAGEMENT
@@ -451,7 +587,7 @@ class RankingService:
         return len(matches_to_insert)
 
     @staticmethod
-    def preview_schedule(ladder, phase, config):
+    def preview_schedule(ladder, phase, config, category_id=None, previous_matches=None):
         """
         Build a preview of the scheduled matches WITHOUT writing to the DB.
 
@@ -459,19 +595,20 @@ class RankingService:
         but returns in-memory match dicts ready for PDF generation.
 
         Args:
-            ladder: ordered ladder list (from get_current_ladder).
-            phase:  'challenge' or 'defend'.
-            config: dict with weekday_first_game, weekday_last_game,
-                    saturday_first_game, saturday_last_game,
-                    sunday_first_game, sunday_last_game,
-                    num_courts, week_start_date, week_end_date.
+            ladder:           ordered ladder list (from get_current_ladder).
+            phase:            'challenge' or 'defend'.
+            config:           dict with schedule configuration.
+            category_id:      optional UUID of ranking category.
+            previous_matches: optional list of previous matches.
 
         Returns:
             (preview_matches, resting_ids)
             preview_matches: list of dicts matching get_week_matches() shape.
             resting_ids: list of player_ids who rest this week.
         """
-        pairings, resting = RankingService.generate_pairings(ladder, phase)
+        pairings, resting = RankingService.generate_pairings(
+            ladder, phase, category_id=category_id, previous_matches=previous_matches
+        )
 
         # Parse time configs
         def parse_time(t):
