@@ -53,9 +53,13 @@
           pDoc.querySelector('.stAppViewContainer') ||
           pDoc.querySelector('section.main');
         if (mainSec) targets.push(mainSec);
-        if (window.parent) targets.push(window.parent);
-        if (pDoc.documentElement) targets.push(pDoc.documentElement);
-        if (pDoc.body) targets.push(pDoc.body);
+        const appContainer = pDoc.querySelector('[data-testid="stAppViewContainer"]');
+        if (appContainer && !targets.includes(appContainer)) targets.push(appContainer);
+        const blockContainer = pDoc.querySelector('[data-testid="stMainBlockContainer"]');
+        if (blockContainer && !targets.includes(blockContainer)) targets.push(blockContainer);
+        if (window.parent && !targets.includes(window.parent)) targets.push(window.parent);
+        if (pDoc.documentElement && !targets.includes(pDoc.documentElement)) targets.push(pDoc.documentElement);
+        if (pDoc.body && !targets.includes(pDoc.body)) targets.push(pDoc.body);
       } catch (e) { }
       return targets;
     }
@@ -89,19 +93,105 @@
         const parts = raw.split('|');
         const savedY = parseFloat(parts[0]);
         const savedTime = parts[1] ? parseInt(parts[1], 10) : Date.now();
-        // Allow up to 60 seconds of modal inspection time
-        if (savedY > 0 && (Date.now() - savedTime < 60000)) {
+        // Allow up to 120 seconds of modal inspection time
+        if (savedY > 0 && (Date.now() - savedTime < 120000)) {
           let ticks = 0;
           const timer = setInterval(() => {
             applyScrollY(savedY);
             ticks++;
-            if (ticks >= 8) clearInterval(timer);
-          }, 30);
+            if (ticks >= 15) clearInterval(timer);
+          }, 20);
         } else {
           window.parent.sessionStorage.removeItem('st_ladder_scroll_pos');
         }
       } catch (e) { }
     }
+
+    // ── Dialog Close Focus & Scroll Guard ────────────────────────────
+    (function initModalWatchers() {
+      try {
+        const pDoc = window.parent.document;
+        if (!pDoc || window.parent.__st_ladder_modal_guard_ready) return;
+        window.parent.__st_ladder_modal_guard_ready = true;
+
+        let modalWasOpen = false;
+        let blockAutoFocusUntil = 0;
+        let isUserPointerAction = false;
+
+        // Detect real user pointer action on inputs to allow intentional focus
+        pDoc.addEventListener('pointerdown', (e) => {
+          if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+            isUserPointerAction = true;
+            setTimeout(() => { isUserPointerAction = false; }, 300);
+          }
+        }, true);
+
+        pDoc.addEventListener('mousedown', (e) => {
+          if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+            isUserPointerAction = true;
+            setTimeout(() => { isUserPointerAction = false; }, 300);
+          }
+        }, true);
+
+        // Intercept focusin in capture phase to prevent browser auto-scroll to search input
+        pDoc.addEventListener('focusin', (e) => {
+          if (Date.now() < blockAutoFocusUntil && !isUserPointerAction) {
+            if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.target.blur();
+              enforceSavedScroll();
+            }
+          }
+        }, true);
+
+        function onModalDismiss() {
+          blockAutoFocusUntil = Date.now() + 600;
+          if (pDoc.activeElement && (pDoc.activeElement.tagName === 'INPUT' || pDoc.activeElement.tagName === 'TEXTAREA')) {
+            pDoc.activeElement.blur();
+          }
+          enforceSavedScroll();
+        }
+
+        // Close button click listener and category tab click listener
+        pDoc.addEventListener('click', (e) => {
+          const closeBtn = e.target.closest('button[aria-label="Close"], button[title="Close"]');
+          const isBackdrop = e.target.matches('div[data-testid="stDialog"]');
+          if (closeBtn || isBackdrop) {
+            onModalDismiss();
+          }
+          const tabBtn = e.target.closest('button[data-baseweb="tab"], div[data-testid="stTabs"] [role="tablist"] button');
+          if (tabBtn) {
+            const text = tabBtn.textContent.trim().toUpperCase();
+            if (text) {
+              window.parent.sessionStorage.setItem('st_active_cat_tab', text);
+            }
+          }
+        }, true);
+
+        // Escape key listener
+        pDoc.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' || e.keyCode === 27) {
+            if (pDoc.querySelector('[data-testid="stDialog"]')) {
+              onModalDismiss();
+            }
+          }
+        }, true);
+
+        // MutationObserver watching for dialog removal
+        const observer = new MutationObserver(() => {
+          const dialogElem = pDoc.querySelector('[data-testid="stDialog"]');
+          if (dialogElem) {
+            modalWasOpen = true;
+          } else if (modalWasOpen) {
+            modalWasOpen = false;
+            onModalDismiss();
+          }
+        });
+
+        observer.observe(pDoc.body, { childList: true, subtree: true });
+      } catch (err) { }
+    })();
 
     // Connect to Streamlit's render event
     window.addEventListener("message", function (event) {

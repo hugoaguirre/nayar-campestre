@@ -1120,8 +1120,33 @@ if not categories:
     st.stop()
 
 cat_names = [c["name"] for c in categories]
+cat_labels = [n.upper() for n in cat_names]
+cat_map = {c["id"]: c["name"].upper() for c in categories}
 
-cat_tabs = st.tabs([n.upper() for n in cat_names])
+# Detect if any category table had a click in this rerun
+for c in categories:
+    cid = c["id"]
+    comp_val = st.session_state.get(f"ladder_table_comp_{cid}")
+    last_val = st.session_state.get(f"_last_ladder_click_{cid}")
+    if comp_val and comp_val != last_val:
+        st.session_state["active_cat_tab"] = cat_map[cid]
+        break
+
+# Detect if any category search query was modified
+for c in categories:
+    cid = c["id"]
+    search_val = st.session_state.get(f"match_search_{cid}")
+    last_search_val = st.session_state.get(f"_last_search_val_{cid}")
+    if search_val is not None and search_val != last_search_val:
+        st.session_state["active_cat_tab"] = cat_map[cid]
+        st.session_state[f"_last_search_val_{cid}"] = search_val
+        break
+
+default_tab = st.session_state.get("active_cat_tab")
+if default_tab not in cat_labels:
+    default_tab = cat_labels[0] if cat_labels else None
+
+cat_tabs = st.tabs(cat_labels, default=default_tab)
 
 for cat_idx, cat_tab in enumerate(cat_tabs):
     selected_cat = categories[cat_idx]
@@ -1512,6 +1537,7 @@ for cat_idx, cat_tab in enumerate(cat_tabs):
                 state_key = f"_last_ladder_click_{cat_id}"
                 if st.session_state.get(state_key) != component_val:
                     st.session_state[state_key] = component_val
+                    st.session_state["active_cat_tab"] = selected_cat["name"].upper()
                     clicked_id = str(component_val).split("_")[0]
                     matched = next(
                         (e for e in ladder if e["player_id"] == clicked_id), None
