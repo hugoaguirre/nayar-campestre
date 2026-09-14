@@ -3,16 +3,33 @@ from supabase import create_client, Client
 
 
 @st.cache_resource
+def _get_base_anon_client() -> Client:
+    """Internal cached base client initialized with the ANON key."""
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_ANON_KEY"]
+    return create_client(url, key)
+
+
 def get_anon_client() -> Client:
     """
     Returns a Supabase client initialized with the ANON key.
-    Used for authentication operations (login, signup, password reset).
-    Cached globally since it doesn't carry user-specific state.
+    Guaranteed to carry the clean anon key without session/JWT contamination.
+    Used for public reads and unauthenticated operations.
     """
     try:
-        url = st.secrets["SUPABASE_URL"]
+        client = _get_base_anon_client()
         key = st.secrets["SUPABASE_ANON_KEY"]
-        return create_client(url, key)
+        expected_header = f"Bearer {key}"
+
+        # Self-healing guard: if mutated by an auth event or expired user JWT,
+        # restore headers to the pure anon key so public reads never fail.
+        if client.options.headers.get("Authorization") != expected_header:
+            client.options.headers["Authorization"] = expected_header
+            if hasattr(client, "auth") and hasattr(client.auth, "_headers"):
+                client.auth._headers["Authorization"] = expected_header
+            client._postgrest = None  # Force PostgREST client recreation
+
+        return client
     except KeyError as e:
         st.error(f"Falta una credencial de Supabase en secrets.toml: {e}")
         st.stop()

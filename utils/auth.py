@@ -4,7 +4,17 @@ Handles login, logout, session management, password reset, and coach invitation.
 Uses Supabase Auth with email/password strategy.
 """
 import streamlit as st
+from supabase import create_client
 from utils.supabase_client import get_anon_client, get_admin_client, create_session_client
+
+
+def _get_ephemeral_auth_client():
+    """
+    Returns a fresh, un-cached Supabase client.
+    Never cached with @st.cache_resource so authentication operations
+    do not contaminate the global anonymous client with user JWTs.
+    """
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_ANON_KEY"])
 
 
 def login_user(email: str, password: str) -> dict | None:
@@ -14,8 +24,9 @@ def login_user(email: str, password: str) -> dict | None:
     Returns the user dict on success, None on failure.
     """
     try:
-        anon = get_anon_client()
-        response = anon.auth.sign_in_with_password({
+        # Use an isolated ephemeral client so get_anon_client() is never polluted
+        auth_client = _get_ephemeral_auth_client()
+        response = auth_client.auth.sign_in_with_password({
             "email": email,
             "password": password
         })
@@ -65,11 +76,35 @@ def login_user(email: str, password: str) -> dict | None:
         return None
 
 
+def refresh_user_session() -> bool:
+    """Attempts to refresh the user's access token using the stored refresh_token."""
+    refresh_token = st.session_state.get('refresh_token')
+    if not refresh_token:
+        return False
+    try:
+        auth_client = _get_ephemeral_auth_client()
+        response = auth_client.auth.refresh_session(refresh_token)
+        if response.session and response.user:
+            st.session_state.access_token = response.session.access_token
+            st.session_state.refresh_token = response.session.refresh_token
+            st.session_state.supabase_session_client = create_session_client(
+                response.session.access_token
+            )
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def logout_user():
     """Signs out the current user and clears all session state."""
     try:
-        anon = get_anon_client()
-        anon.auth.sign_out()
+        session_client = st.session_state.get('supabase_session_client')
+        if session_client:
+            session_client.auth.sign_out()
+        else:
+            auth_client = _get_ephemeral_auth_client()
+            auth_client.auth.sign_out()
     except Exception:
         pass  # Best-effort sign out
     
@@ -107,8 +142,8 @@ def require_auth() -> dict:
                 st.session_state.supabase_session_client = create_session_client(
                     access_token
                 )
-            else:
-                # Token lost — force re-login
+            elif not refresh_user_session():
+                # Token lost and refresh failed — force re-login
                 logout_user()
                 return None  # Won't reach here due to rerun
         return user
@@ -121,8 +156,8 @@ def require_auth() -> dict:
 def send_password_reset(email: str) -> bool:
     """Sends a password reset email via Supabase Auth."""
     try:
-        anon = get_anon_client()
-        anon.auth.reset_password_email(email)
+        auth_client = _get_ephemeral_auth_client()
+        auth_client.auth.reset_password_email(email)
         return True
     except Exception as e:
         st.toast(f"❌ Error al enviar el enlace: {e}", icon="🚫")

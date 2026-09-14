@@ -427,23 +427,31 @@ div[data-testid="stTextInput"] input[placeholder*="Buscar jugador"]::-webkit-sea
 # ── Data fetching (anon client — public read) ─────────────────
 @st.cache_data(ttl=30)
 def _fetch_categories():
-    client = get_anon_client()
-    resp = client.table("categories").select("id, name").execute()
-    return resp.data or []
+    try:
+        client = get_anon_client()
+        resp = client.table("categories").select("id, name").execute()
+        return resp.data or []
+    except Exception as e:
+        st.error(f"Error al cargar categorías: {e}")
+        return []
 
 
 @st.cache_data(ttl=30)
 def _fetch_ladder(category_id):
-    client = get_anon_client()
-    resp = (
-        client.table("ranking_ladders")
-        .select("position, player_id, players(first_name, last_name)")
-        .eq("category_id", category_id)
-        .eq("is_active", True)
-        .order("position")
-        .execute()
-    )
-    return resp.data or []
+    try:
+        client = get_anon_client()
+        resp = (
+            client.table("ranking_ladders")
+            .select("position, player_id, players(first_name, last_name)")
+            .eq("category_id", category_id)
+            .eq("is_active", True)
+            .order("position")
+            .execute()
+        )
+        return resp.data or []
+    except Exception as e:
+        st.error(f"Error al cargar ladder: {e}")
+        return []
 
 
 @st.cache_data(ttl=30)
